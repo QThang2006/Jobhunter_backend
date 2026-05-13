@@ -39,7 +39,7 @@ public class EmailController {
 
         // Gửi email
         emailService.sendInterviewInvitationEmail(
-                resume.getId().toString(),
+                resume.getJob().getCompany().getId().toString(),
                 resume.getEmail(),                        // to
                 resume.getUser().getName(),               // candidateName
                 resume.getJob().getCompany().getName(),            // companyName
