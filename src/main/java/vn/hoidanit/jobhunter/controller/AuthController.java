@@ -99,15 +99,18 @@ public class AuthController {
         User currentUserDB = userService.handleGetUserByUsername(email);
         Role role = currentUserDB.getRole();
 
+
         ResLoginDTO.UserLogin userLogin = new ResLoginDTO.UserLogin();
         ResLoginDTO.UserGetAccount userGetAccount = new ResLoginDTO.UserGetAccount();
         if(currentUserDB != null){
             userLogin.setId(currentUserDB.getId());
             userLogin.setName(currentUserDB.getName());
             userLogin.setEmail(currentUserDB.getEmail());
-            if(role.isActive()) {
+            if (role != null && role.isActive()) {
                 userLogin.setRole(currentUserDB.getRole());
-            }else userLogin.setRole(null);
+            } else {
+                userLogin.setRole(null);
+            }
             userGetAccount.setUser(userLogin);
         }
         return ResponseEntity.ok(userGetAccount);
