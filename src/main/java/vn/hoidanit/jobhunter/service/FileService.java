@@ -2,74 +2,114 @@ package vn.hoidanit.jobhunter.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.InputStreamSource;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import vn.hoidanit.jobhunter.util.error.StorageException;
 
 import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.net.URL;
+import java.util.UUID;
 
 @Service
 public class FileService {
 
-    @Value("${thang.upload-file.base-uri}")
-    private String baseURI;
+    @Value("${supabase.url}")
+    private String supabaseUrl;
 
+    @Value("${supabase.key}")
+    private String supabaseKey;
 
-    public void createDirectory(String folder) throws URISyntaxException {
-        URI uri = new URI(folder);
-        Path path = Paths.get(uri);
-        File tmpDir = new File(path.toString());
-        if (!tmpDir.isDirectory()) {
-            try {
-                Files.createDirectory(tmpDir.toPath());
-                System.out.println(">>> CREATE NEW DIRECTORY SUCCESSFUL, PATH = " + tmpDir.toPath());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } else {
-            System.out.println(">>> SKIP MAKING DIRECTORY, ALREADY EXISTS");
+    // =========================
+    // UPLOAD FILE
+    // =========================
+    public String store(
+            MultipartFile file,
+            String folder
+    ) throws IOException,StorageException{
+
+        // unique filename
+        String finalName =
+                UUID.randomUUID()
+                        + "-"
+                        + file.getOriginalFilename();
+
+        // upload endpoint
+        String uploadUrl =
+                supabaseUrl
+                        + "/storage/v1/object/"
+                        + folder
+                        + "/"
+                        + finalName;
+
+        HttpHeaders headers =
+                new HttpHeaders();
+
+        headers.setBearerAuth(supabaseKey);
+
+        headers.setContentType(
+                MediaType.APPLICATION_OCTET_STREAM
+        );
+
+        HttpEntity<byte[]> entity =
+                new HttpEntity<>(
+                        file.getBytes(),
+                        headers
+                );
+
+        RestTemplate restTemplate =
+                new RestTemplate();
+
+        ResponseEntity<String> response =
+                restTemplate.exchange(
+                        uploadUrl,
+                        HttpMethod.POST,
+                        entity,
+                        String.class
+                );
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new StorageException(
+                    "Upload file failed"
+            );
         }
 
+        // public url
+        return supabaseUrl
+                + "/storage/v1/object/public/"
+                + folder
+                + "/"
+                + finalName;
     }
 
-    public String store(MultipartFile file, String folder) throws URISyntaxException, IOException {
-        // create unique filename
-        String finalName = System.currentTimeMillis() + "-" + file.getOriginalFilename();
+    // =========================
+    // DOWNLOAD FILE
+    // =========================
+    public InputStreamResource getResource(
+            String fileUrl
+    ) throws IOException {
 
-        URI uri = new URI(baseURI + folder + "/" + finalName);
-        Path path = Paths.get(uri);
-        try (InputStream inputStream = file.getInputStream()) {
-            Files.copy(inputStream, path,
-                    StandardCopyOption.REPLACE_EXISTING);
-        }
-        return finalName;
+        URL url = new URL(fileUrl);
+
+        InputStream inputStream =
+                url.openStream();
+
+        return new InputStreamResource(
+                inputStream
+        );
     }
 
-    public long getFileLength(String fileName, String folder) throws URISyntaxException {
-        URI uri = new URI(baseURI + folder + "/" + fileName);
-        Path path = Paths.get(uri);
+    // =========================
+    // GET FILE LENGTH
+    // =========================
+    public long getFileLength(
+            String fileUrl
+    ) throws IOException {
 
-        File tmpDir = new File(path.toString());
+        URL url = new URL(fileUrl);
 
-        if(!tmpDir.exists() || tmpDir.isDirectory()){
-            return 0;
-        }
-        return tmpDir.length();
+        return url.openConnection()
+                .getContentLengthLong();
     }
-
-    public InputStreamResource getResource(String fileName, String folder) throws URISyntaxException, FileNotFoundException {
-        URI uri = new URI(baseURI + folder + "/" + fileName);
-        Path path = Paths.get(uri);
-
-        File file = new File(path.toString());
-
-        return new InputStreamResource(new FileInputStream(file));
-    }
-
 }

@@ -1,8 +1,6 @@
 package vn.hoidanit.jobhunter.controller;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.InputStreamSource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -14,7 +12,6 @@ import vn.hoidanit.jobhunter.service.FileService;
 import vn.hoidanit.jobhunter.util.error.StorageException;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -23,70 +20,106 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class FileController {
 
-    @Value("${thang.upload-file.base-uri}")
-    private String baseURI;
-
     private final FileService fileService;
 
-    public FileController(FileService fileService) {
+    public FileController(
+            FileService fileService
+    ) {
         this.fileService = fileService;
     }
 
+    // =========================
+    // UPLOAD
+    // =========================
     @PostMapping("/files")
     public ResponseEntity<ResUploadFileDTO> upload(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("folder") String folder
-    ) throws URISyntaxException, IOException, StorageException {
+            @RequestParam("file")
+            MultipartFile file,
 
-        if(file == null || file.isEmpty()){
-            throw new StorageException("File is empty. Please upload file.");
+            @RequestParam("folder")
+            String folder
+
+    ) throws IOException, StorageException {
+
+        if (file == null || file.isEmpty()) {
+            throw new StorageException(
+                    "File is empty. Please upload file."
+            );
         }
 
-        String fileName = file.getOriginalFilename();
-        String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+        String fileName =
+                file.getOriginalFilename();
 
-        List<String> allowed = Arrays.asList("pdf", "jpg", "jpeg", "png", "doc", "docx");
-        boolean isValid = allowed.contains(extension);
-        if(!isValid){
-            throw new StorageException("Invalid file Exception. only allows " + allowed.toString());
+        String extension =
+                fileName.substring(
+                        fileName.lastIndexOf(".") + 1
+                ).toLowerCase();
+
+        List<String> allowed =
+                Arrays.asList(
+                        "pdf",
+                        "jpg",
+                        "jpeg",
+                        "png",
+                        "doc",
+                        "docx"
+                );
+
+        boolean isValid =
+                allowed.contains(extension);
+
+        if (!isValid) {
+            throw new StorageException(
+                    "Invalid file Exception. only allows "
+                            + allowed
+            );
         }
 
-        //create a directory if not exist
-        fileService.createDirectory(baseURI + folder);
+        // upload to supabase
+        String uploadedUrl =
+                fileService.store(
+                        file,
+                        folder
+                );
 
-        //store file
-        String uploadNameFile = fileService.store(file,folder);
-
-        ResUploadFileDTO res = new ResUploadFileDTO(uploadNameFile, Instant.now());
-
-        return ResponseEntity.ok().body(res);
-
-    }
-
-    @GetMapping("/files")
-    public ResponseEntity<Resource> download(
-            @RequestParam(value = "fileName", required = false) String fileName,
-            @RequestParam(value = "folder",required = false) String folder
-    ) throws URISyntaxException, IOException, StorageException {
-
-        if(fileName == null || folder == null){
-            throw new StorageException("Missing params : file name or folder not null");
-        }
-
-        long fileLength = fileService.getFileLength(fileName,folder);
-        if(fileLength == 0){
-            throw new StorageException("file with name : " + fileName + "not found");
-        }
-
-        //download a file
-
-        InputStreamResource resource = fileService.getResource(fileName,folder);
-
+        ResUploadFileDTO res =
+                new ResUploadFileDTO(
+                        uploadedUrl,
+                        Instant.now()
+                );
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"" + fileName + "\"")
+                .body(res);
+    }
+
+    // =========================
+    // DOWNLOAD
+    // =========================
+    @GetMapping("/files")
+    public ResponseEntity<Resource> download(
+            @RequestParam("fileUrl")
+            String fileUrl
+    ) throws IOException {
+
+        long fileLength =
+                fileService.getFileLength(
+                        fileUrl
+                );
+
+        InputStreamResource resource =
+                fileService.getResource(
+                        fileUrl
+                );
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment"
+                )
                 .contentLength(fileLength)
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentType(
+                        MediaType.APPLICATION_OCTET_STREAM
+                )
                 .body(resource);
     }
 }
