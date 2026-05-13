@@ -35,6 +35,7 @@ public class EmailService {
 
     public void sendSimpleEmail(String otp,String email){
         SimpleMailMessage msg = new SimpleMailMessage();
+        msg.setFrom("quocthanggo2006@gmail.com");
         msg.setTo(email);
         msg.setSubject("otp");
         msg.setText("otp cua ban la: "+otp);
@@ -46,6 +47,7 @@ public class EmailService {
         MimeMessage mimeMessage = this.javaMailSender.createMimeMessage();
         try {
             MimeMessageHelper message = new MimeMessageHelper(mimeMessage, isMultipart, StandardCharsets.UTF_8.name());
+            message.setFrom("quocthanggo2006@gmail.com");
             message.setTo(to);
             message.setSubject(subject);
             message.setText(content, isHtml);
