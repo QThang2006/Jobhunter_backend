@@ -5,6 +5,7 @@ import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.parser.FilterParser;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -39,12 +40,18 @@ public class ResumeService {
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
     private final JobRepository jobRepository;
+    private final NotificationService notificationService;
 
-    public ResumeService(SimpMessagingTemplate simpMessagingTemplate, ResumeRepository resumeRepository, UserRepository userRepository, JobRepository jobRepository) {
+    public ResumeService(SimpMessagingTemplate simpMessagingTemplate,
+                         ResumeRepository resumeRepository,
+                         UserRepository userRepository,
+                         JobRepository jobRepository,
+                         @Lazy NotificationService notificationService) {
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
+        this.notificationService = notificationService;
     }
 
     public boolean checkResumeExistByUserAndJob(Resume resume) {
@@ -96,6 +103,9 @@ public class ResumeService {
         res.setUpdateAt(resume1.getUpdatedAt());
         res.setUpdateBy(resume1.getUpdatedBy());
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
+
+        notificationService.createResumeNotification(resume1);
+
         return res;
     }
 
