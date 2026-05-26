@@ -42,7 +42,7 @@
                             <tr th:each="job : ${jobs}">
                                 <td>
                                     <div style="font-size: 16px;">
-                                        <a th:href="@{https://jobhunter-fe-one.vercel.app/job/open-to-Email(id=${job.id})}" target="_blank"
+                                        <a th:href="@{https://jobhunter-fe-one.vercel.app/job/open-to-email(id=${job.id})}" target="_blank"
                                            style="text-decoration: none;" th:text="${job.name}"></a>
                                     </div>
                                     <div style="font-size: 14px;" th:text="${job.company.name}"></div>
