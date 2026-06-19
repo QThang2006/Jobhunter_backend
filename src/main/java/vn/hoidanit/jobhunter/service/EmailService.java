@@ -19,6 +19,7 @@ import vn.hoidanit.jobhunter.config.AppConfig;
 import vn.hoidanit.jobhunter.domain.Job;
 import vn.hoidanit.jobhunter.domain.response.email.EmailValidationResponse;
 import vn.hoidanit.jobhunter.repository.JobRepository;
+import vn.hoidanit.jobhunter.util.error.IdInvalidException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -43,18 +44,20 @@ public class EmailService {
     private final String API_KEY = "a48f032cc416409581555b1fba7ad04c";
     private final String URL = "https://emailreputation.abstractapi.com/v1/?api_key=" + API_KEY + "&email=";
 
-    public boolean checkEmailExist(String email) {
+    public boolean checkEmailExist(String email) throws IdInvalidException {
         try {
             String finalUrl = URL + email;
             EmailValidationResponse response = restTemplate.getForObject(finalUrl, EmailValidationResponse.class);
 
+            // Log để xem API thật sự trả về true hay false cho email này
             if (response != null && response.getEmailDeliverability() != null) {
-                System.out.println(">>> Kết quả SMTP từ API cho email " + email + " là: " + response.getEmailDeliverability().isSmtpValid());
-                return response.getEmailDeliverability().isSmtpValid();
+                boolean result = response.getEmailDeliverability().isSmtpValid();
+                return result;
             }
         } catch (Exception e) {
-            System.out.println(">>> API bị lỗi hoặc quá giới hạn, nhảy vào khối catch nên trả về true!");
-            return true;
+            // QUAN TRỌNG: In hẳn thông báo lỗi ra log Render để check xem có bị quá giới hạn (429) không
+            throw new IdInvalidException(">>> [API ERROR] Bị lỗi khi gọi AbstractAPI: " + e.getMessage());
+
         }
         return false;
     }
