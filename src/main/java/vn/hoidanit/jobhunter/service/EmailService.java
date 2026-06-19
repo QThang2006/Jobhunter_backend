@@ -44,20 +44,25 @@ public class EmailService {
     private final String API_KEY = "a48f032cc416409581555b1fba7ad04c";
     private final String URL = "https://emailreputation.abstractapi.com/v1/?api_key=" + API_KEY + "&email=";
 
-    public boolean checkEmailExist(String email) throws IdInvalidException {
+    public boolean checkEmailExist(String email) {
         try {
             String finalUrl = URL + email;
             EmailValidationResponse response = restTemplate.getForObject(finalUrl, EmailValidationResponse.class);
 
-            // Log để xem API thật sự trả về true hay false cho email này
             if (response != null && response.getEmailDeliverability() != null) {
                 boolean result = response.getEmailDeliverability().isSmtpValid();
+                // IN LOG NÀY ĐỂ XEM TRÊN RENDER: API thực tế trả về true hay false
+                System.out.println(">>> [ABSTRACT API SUCCESS] Email: " + email + " -> isSmtpValid: " + result);
                 return result;
             }
         } catch (Exception e) {
-            // QUAN TRỌNG: In hẳn thông báo lỗi ra log Render để check xem có bị quá giới hạn (429) không
-            throw new IdInvalidException(">>> [API ERROR] Bị lỗi khi gọi AbstractAPI: " + e.getMessage());
+            // IN THẲNG LỖI RA CONSOLE ĐỂ RENDER BẮT ĐƯỢC LOG
+            System.err.println(">>> [ABSTRACT API CRASH] Lỗi kết nối API hoặc quá giới hạn 429: " + e.getMessage());
+            e.printStackTrace();
 
+            // Thay vì throw Exception làm sập luồng ngầm, hãy trả về false
+            // để hệ thống biết là KHÔNG XÁC THỰC ĐƯỢC (Coi như email giả để chặn lại)
+            return false;
         }
         return false;
     }
