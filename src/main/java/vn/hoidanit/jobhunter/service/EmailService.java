@@ -49,12 +49,11 @@ public class EmailService {
             EmailValidationResponse response = restTemplate.getForObject(finalUrl, EmailValidationResponse.class);
 
             if (response != null && response.getEmailDeliverability() != null) {
-                // Trả về trực tiếp giá trị true/false của hệ thống Google xác nhận
+                System.out.println(">>> Kết quả SMTP từ API cho email " + email + " là: " + response.getEmailDeliverability().isSmtpValid());
                 return response.getEmailDeliverability().isSmtpValid();
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            // Nếu API bên thứ 3 bị lỗi kết nối hoặc hết lượt, mặc định trả về true để không làm nghẽn app
+            System.out.println(">>> API bị lỗi hoặc quá giới hạn, nhảy vào khối catch nên trả về true!");
             return true;
         }
         return false;
