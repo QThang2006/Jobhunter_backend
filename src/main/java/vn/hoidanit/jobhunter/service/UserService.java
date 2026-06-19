@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import vn.hoidanit.jobhunter.repository.SubscriberRepository;
 import vn.hoidanit.jobhunter.repository.UserRepository;
 
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -213,6 +215,7 @@ public class UserService {
         if (user != null) {
             String otp = String.valueOf((int)((Math.random() * 900000) + 100000)); // 6 digits
             user.setOtp(otp);
+            user.setOtpExpiredAt(Instant.now().plusSeconds(60));
             userRepository.save(user);
             emailService.sendSimpleEmail(otp,email);
         }
@@ -235,6 +238,11 @@ public class UserService {
             user.setOtp(null); // Xóa OTP sau khi dùng
             userRepository.save(user);
         }
+    }
+
+    @Scheduled(fixedRate = 60000)
+    public void autoCleanOtp() {
+        userRepository.clearExpiredOtp(Instant.now());
     }
 
 }

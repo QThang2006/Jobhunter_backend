@@ -4,6 +4,7 @@ package vn.hoidanit.jobhunter.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.apache.catalina.LifecycleState;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -11,9 +12,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
+import vn.hoidanit.jobhunter.config.AppConfig;
 import vn.hoidanit.jobhunter.domain.Job;
+import vn.hoidanit.jobhunter.domain.response.email.EmailValidationResponse;
 import vn.hoidanit.jobhunter.repository.JobRepository;
 
 import java.nio.charset.StandardCharsets;
@@ -26,11 +30,34 @@ public class EmailService {
     private final SpringTemplateEngine templateEngine;
     private final JobRepository jobRepository;
 
+    @Autowired
+    private RestTemplate restTemplate;
+
     public EmailService(MailSender mailSender, JavaMailSender javaMailSender, SpringTemplateEngine templateEngine, JobRepository jobRepository) {
         this.mailSender = mailSender;
         this.javaMailSender = javaMailSender;
         this.templateEngine = templateEngine;
         this.jobRepository = jobRepository;
+    }
+
+    private final String API_KEY = "a48f032cc416409581555b1fba7ad04c";
+    private final String URL = "https://emailreputation.abstractapi.com/v1/?api_key=" + API_KEY + "&email=";
+
+    public boolean checkEmailExist(String email) {
+        try {
+            String finalUrl = URL + email;
+            EmailValidationResponse response = restTemplate.getForObject(finalUrl, EmailValidationResponse.class);
+
+            if (response != null && response.getEmailDeliverability() != null) {
+                // Trả về trực tiếp giá trị true/false của hệ thống Google xác nhận
+                return response.getEmailDeliverability().isSmtpValid();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Nếu API bên thứ 3 bị lỗi kết nối hoặc hết lượt, mặc định trả về true để không làm nghẽn app
+            return true;
+        }
+        return false;
     }
 
     public void sendSimpleEmail(String otp,String email){

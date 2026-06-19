@@ -14,6 +14,7 @@ import vn.hoidanit.jobhunter.domain.response.ResUpdateUserDTO;
 import vn.hoidanit.jobhunter.domain.response.ResUserDTO;
 import vn.hoidanit.jobhunter.domain.response.ResCreateUserDTO;
 import vn.hoidanit.jobhunter.domain.response.ResultPaginationDTO;
+import vn.hoidanit.jobhunter.service.EmailService;
 import vn.hoidanit.jobhunter.service.UserService;
 import vn.hoidanit.jobhunter.util.annotation.ApiMessage;
 import vn.hoidanit.jobhunter.util.error.IdInvalidException;
@@ -24,17 +25,23 @@ public class UserController {
 
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
-    public UserController(UserService userService, PasswordEncoder passwordEncoder) {
+    public UserController(UserService userService, PasswordEncoder passwordEncoder,EmailService emailService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     @PostMapping("/users")
     public ResponseEntity<ResCreateUserDTO> createNewUser(@Valid  @RequestBody User user) throws IdInvalidException {
-        boolean isEmailExist = userService.isEmailExist(user.getEmail());
-        if(isEmailExist){
+        boolean isEmailExistInSystem = userService.isEmailExist(user.getEmail());
+        if(isEmailExistInSystem){
             throw new IdInvalidException("Email: "+user.getEmail()+" da ton tai");
+        }
+        boolean isEmailExist = emailService.checkEmailExist(user.getEmail());
+        if(isEmailExist){
+            throw new IdInvalidException("Email ko chinh xac");
         }
         String hashPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(hashPassword);

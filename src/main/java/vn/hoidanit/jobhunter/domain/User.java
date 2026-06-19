@@ -24,6 +24,8 @@ public class User {
 
     private String otp;
 
+    private Instant otpExpiredAt;
+
     private String name;
     @NotBlank(message = "email ko dc de trong")
     private String email;
