@@ -10,6 +10,7 @@ import vn.hoidanit.jobhunter.domain.User;
 import vn.hoidanit.jobhunter.domain.response.ResultPaginationDTO;
 import vn.hoidanit.jobhunter.repository.CompanyRepository;
 import vn.hoidanit.jobhunter.repository.UserRepository;
+import vn.hoidanit.jobhunter.util.SecurityUtil;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,17 +34,32 @@ public class CompanyService {
         return this.companyRepository.save(c);
     }
 
-    public ResultPaginationDTO handleGetCompany(Specification<Company> spec, Pageable pageable){
-        Page<Company> pageUser = companyRepository.findAll(spec,pageable);
+    public ResultPaginationDTO handleGetCompany(Specification<Company> spec, Pageable pageable) {
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin đăng nhập của User"));
+
+        User currentUser = this.userRepository.findByEmail(email);
+
+        if (currentUser != null && currentUser.getCompany() != null) {
+            Long companyId = currentUser.getCompany().getId();
+            Specification<Company> companyIdSpec = (root, query, cb) ->
+                    cb.equal(root.get("id"), companyId);
+            spec = (spec == null) ? companyIdSpec : spec.and(companyIdSpec);
+        }
+
+        Page<Company> pageCompany = this.companyRepository.findAll(spec, pageable);
+
         ResultPaginationDTO rs = new ResultPaginationDTO();
         ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
-        mt.setPage(pageUser.getNumber()+1);
-        mt.setPageSize(pageUser.getSize());
-        mt.setPages(pageUser.getTotalPages());
-        mt.setTotal(pageUser.getTotalElements());
+
+        mt.setPage(pageCompany.getNumber() + 1);
+        mt.setPageSize(pageCompany.getSize());
+        mt.setPages(pageCompany.getTotalPages());
+        mt.setTotal(pageCompany.getTotalElements());
 
         rs.setMeta(mt);
-        rs.setResult(pageUser.getContent());
+        rs.setResult(pageCompany.getContent());
+
         return rs;
     }
 
