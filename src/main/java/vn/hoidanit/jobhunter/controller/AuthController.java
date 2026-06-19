@@ -22,6 +22,7 @@ import vn.hoidanit.jobhunter.domain.request.VerifyOTPRequest;
 import vn.hoidanit.jobhunter.domain.response.ResCreateUserDTO;
 import vn.hoidanit.jobhunter.domain.response.ResLoginDTO;
 import vn.hoidanit.jobhunter.repository.RoleRepository;
+import vn.hoidanit.jobhunter.service.EmailService;
 import vn.hoidanit.jobhunter.service.RoleService;
 import vn.hoidanit.jobhunter.service.UserService;
 import vn.hoidanit.jobhunter.util.SecurityUtil;
@@ -36,16 +37,18 @@ public class AuthController {
     private final SecurityUtil securityUtil;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
+    private final EmailService emailService;
 
     @Value("${jwt.refresh-token-validity-in-seconds}")
     private Long refreshTokenExpiration;
 
-    public AuthController(UserService userService, AuthenticationManager authenticationManager, SecurityUtil securityUtil, PasswordEncoder passwordEncoder, RoleRepository roleRepository) {
+    public AuthController(UserService userService, AuthenticationManager authenticationManager, SecurityUtil securityUtil, PasswordEncoder passwordEncoder, RoleRepository roleRepository, EmailService emailService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.securityUtil = securityUtil;
         this.passwordEncoder = passwordEncoder;
         this.roleRepository = roleRepository;
+        this.emailService = emailService;
     }
 
     @PostMapping("/auth/login")
@@ -188,9 +191,13 @@ public class AuthController {
     @PostMapping("/auth/register")
     @ApiMessage("register a user")
     public ResponseEntity<ResCreateUserDTO> register(@Valid  @RequestBody User user) throws IdInvalidException {
-        boolean isEmailExist = userService.isEmailExist(user.getEmail());
-        if(isEmailExist){
+        boolean isEmailExist1 = userService.isEmailExist(user.getEmail());
+        if(isEmailExist1){
             throw new IdInvalidException("Email: "+user.getEmail()+" da ton tai");
+        }
+        boolean isEmailExist = emailService.checkEmailExist(user.getEmail());
+        if(isEmailExist){
+            throw new IdInvalidException("Email ko chinh xac");
         }
         String hashPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(hashPassword);
