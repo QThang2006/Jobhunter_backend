@@ -196,7 +196,7 @@ public class AuthController {
             throw new IdInvalidException("Email: "+user.getEmail()+" da ton tai");
         }
         boolean isEmailExist = emailService.checkEmailExist(user.getEmail());
-        if(isEmailExist){
+        if(!isEmailExist){
             throw new IdInvalidException("Email ko chinh xac");
         }
         String hashPassword = passwordEncoder.encode(user.getPassword());
