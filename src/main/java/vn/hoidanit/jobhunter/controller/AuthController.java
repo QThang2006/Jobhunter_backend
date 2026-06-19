@@ -212,8 +212,11 @@ public class AuthController {
     }
 
     @PostMapping("/auth/verify-otp")
-    public ResponseEntity<Boolean> verifyOTP(@RequestBody VerifyOTPRequest req) {
+    public ResponseEntity<Boolean> verifyOTP(@RequestBody VerifyOTPRequest req) throws IdInvalidException {
         boolean isValid = userService.verifyOTP(req.getEmail(), req.getOtp());
+        if(!isValid){
+            throw new IdInvalidException("sai otp");
+        }
         return ResponseEntity.ok(isValid);
     }
 
