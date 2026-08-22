@@ -172,27 +172,40 @@ public class JobService {
 
 
     public ResultPaginationDTO fetchAllJobs(Specification<Job> spec, Pageable pageable) {
+        Page<Job> pageJob = jobRepository.findAll(spec, pageable);
 
-        // Lấy email user đang đăng nhập
-        String email = SecurityUtil.getCurrentUserLogin()
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        ResultPaginationDTO rs = new ResultPaginationDTO();
+        ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
 
-        // Tìm user
-        User currentUser = userRepository.findByEmail(email);
+        mt.setPage(pageJob.getNumber() + 1);
+        mt.setPageSize(pageJob.getSize());
+        mt.setPages(pageJob.getTotalPages());
+        mt.setTotal(pageJob.getTotalElements());
+
+        rs.setMeta(mt);
+        rs.setResult(pageJob.getContent());
+
+        return rs;
+    }
+
+    public ResultPaginationDTO fetchAllJobsForAdmin(Specification<Job> spec, Pageable pageable) {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+
+        if (currentUserLogin.isPresent()) {
+            String email = currentUserLogin.get();
+            User currentUser = userRepository.findByEmail(email);
 
         // Nếu user thuộc công ty
         if (currentUser.getCompany() != null) {
-
-            Long companyId = currentUser.getCompany().getId();
+                
+                    Long companyId = currentUser.getCompany().getId();
 
             // Spec lọc theo company
-            Specification<Job> companySpec = (root, query, cb) ->
-                    cb.equal(root.get("company").get("id"), companyId);
+                    Specification<Job> companySpec = (root, query, cb) ->
+                            cb.equal(root.get("company").get("id"), companyId);
 
-            // Gộp spec cũ + spec company
-            spec = spec == null
-                    ? companySpec
-                    : spec.and(companySpec);
+                    spec = (spec == null) ? companySpec : spec.and(companySpec);
+            }
         }
 
         Page<Job> pageJob = jobRepository.findAll(spec, pageable);

@@ -35,16 +35,35 @@ public class CompanyService {
     }
 
     public ResultPaginationDTO handleGetCompany(Specification<Company> spec, Pageable pageable) {
-        String email = SecurityUtil.getCurrentUserLogin()
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin đăng nhập của User"));
+        Page<Company> pageCompany = this.companyRepository.findAll(spec, pageable);
 
-        User currentUser = this.userRepository.findByEmail(email);
+        ResultPaginationDTO rs = new ResultPaginationDTO();
+        ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
+
+        mt.setPage(pageCompany.getNumber() + 1);
+        mt.setPageSize(pageCompany.getSize());
+        mt.setPages(pageCompany.getTotalPages());
+        mt.setTotal(pageCompany.getTotalElements());
+
+        rs.setMeta(mt);
+        rs.setResult(pageCompany.getContent());
+
+        return rs;
+    }
+
+    public ResultPaginationDTO handleGetCompanyForAdmin(Specification<Company> spec, Pageable pageable) {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+
+        if (currentUserLogin.isPresent()) {
+            String email = currentUserLogin.get();
+            User currentUser = this.userRepository.findByEmail(email);
 
         if (currentUser != null && currentUser.getCompany() != null) {
-            Long companyId = currentUser.getCompany().getId();
-            Specification<Company> companyIdSpec = (root, query, cb) ->
-                    cb.equal(root.get("id"), companyId);
-            spec = (spec == null) ? companyIdSpec : spec.and(companyIdSpec);
+                    Long companyId = currentUser.getCompany().getId();
+                    Specification<Company> companyIdSpec = (root, query, cb) ->
+                            cb.equal(root.get("id"), companyId);
+                    spec = (spec == null) ? companyIdSpec : spec.and(companyIdSpec);
+                }
         }
 
         Page<Company> pageCompany = this.companyRepository.findAll(spec, pageable);

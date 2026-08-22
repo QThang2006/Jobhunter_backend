@@ -33,8 +33,15 @@ public class CompanyController {
     }
 
     @GetMapping("/companies")
+    @ApiMessage("fetch companies for public")
     public ResponseEntity<ResultPaginationDTO> getCompany(@Filter Specification<Company> spec, Pageable pageable){
         return ResponseEntity.ok(companyService.handleGetCompany(spec,pageable));
+    }
+
+    @GetMapping("/companies/by-user")
+    @ApiMessage("fetch companies by user for admin hr")
+    public ResponseEntity<ResultPaginationDTO> getCompanyAdmin(@Filter Specification<Company> spec, Pageable pageable){
+        return ResponseEntity.ok(companyService.handleGetCompanyForAdmin(spec,pageable));
     }
 
     @PutMapping("/companies")

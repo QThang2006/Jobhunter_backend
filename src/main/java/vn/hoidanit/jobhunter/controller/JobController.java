@@ -64,12 +64,21 @@ public class   JobController {
     }
 
     @GetMapping("/jobs")
-    @ApiMessage("get jobs with pagination")
+    @ApiMessage("get jobs with pagination for public")
     public ResponseEntity<ResultPaginationDTO> getAllJob(
             @Filter Specification<Job> spec,
             Pageable pageable ) {
 
         return ResponseEntity.status(HttpStatus.OK).body(jobService.fetchAllJobs(spec,pageable));
+    }
+
+    @GetMapping("/jobs/by-company")
+    @ApiMessage("get jobs by company for admin hr")
+    public ResponseEntity<ResultPaginationDTO> getAllJobAdmin(
+            @Filter Specification<Job> spec,
+            Pageable pageable ) {
+
+        return ResponseEntity.status(HttpStatus.OK).body(jobService.fetchAllJobsForAdmin(spec,pageable));
     }
 
     @GetMapping("/jobs/{id}")
