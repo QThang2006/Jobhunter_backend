@@ -2,7 +2,6 @@ package vn.hoidanit.jobhunter.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -10,10 +9,8 @@ import org.springframework.context.annotation.Configuration;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -26,13 +23,10 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
 
-import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
 import vn.hoidanit.jobhunter.util.SecurityUtil;
 
 import javax.crypto.SecretKey;
@@ -43,13 +37,17 @@ import javax.crypto.spec.SecretKeySpec;
 @EnableMethodSecurity(securedEnabled = true)
 public class SecurityConfiguration {
 
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+
     @Value("${jwt.base64-secret}")
     private String jwtKey;
 
     private final UserDetailsService userDetailsService;
 
-    public SecurityConfiguration(@Qualifier("userDetailService") UserDetailsService userDetailsService) {
+    public SecurityConfiguration(@Qualifier("userDetailService") UserDetailsService userDetailsService,
+                                  OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
         this.userDetailsService = userDetailsService;
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
     }
 
     @Bean
@@ -76,7 +74,8 @@ public class SecurityConfiguration {
                 "/",
                 "/api/v1/auth/login", "/api/v1/auth/refresh","/api/v1/auth/register",
                 "/storage/**",
-                "/api/v1/auth/forgot-password","/api/v1/auth/verify-otp","/api/v1/auth/reset-password"
+                "/api/v1/auth/forgot-password","/api/v1/auth/verify-otp","/api/v1/auth/reset-password",
+                "/oauth2/**", "/login/oauth2/**"  // Google OAuth2 endpoints
         };
         http
                 .csrf(c -> c.disable())
@@ -90,6 +89,10 @@ public class SecurityConfiguration {
                                 .requestMatchers("/ws/**").permitAll()
                                 .anyRequest().authenticated()
                 )
+                // Cấu hình Google OAuth2 Login
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2LoginSuccessHandler)
+                )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(Customizer.withDefaults())
                         .authenticationEntryPoint(customAuthenticationEntryPoint)
@@ -100,7 +103,9 @@ public class SecurityConfiguration {
                                 .accessDeniedHandler(new BearerTokenAccessDeniedHandler()) // 403
                 )
                 .formLogin(f -> f.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                // OAuth2 login requires a session briefly to store the state/code verifier
+                // We use IF_REQUIRED so the session is only created when needed for OAuth2 flow
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
         return http.build();
     }

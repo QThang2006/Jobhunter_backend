@@ -27,7 +27,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")
+
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
