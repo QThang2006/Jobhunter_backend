@@ -4,6 +4,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
@@ -30,10 +31,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private Long refreshTokenExpiration;
 
     // URL của Frontend để redirect về sau khi login thành công
-    private static final String FRONTEND_REDIRECT_URL = "https://jobhunter-fe-one.vercel.app/oauth2/redirect";
+    private static final String FRONTEND_REDIRECT_URL = "http://localhost:3000/oauth2/redirect";
 
     public OAuth2LoginSuccessHandler(UserService userService,
-                                     SecurityUtil securityUtil,
+                                     @Lazy SecurityUtil securityUtil,
                                      RoleRepository roleRepository) {
         this.userService = userService;
         this.securityUtil = securityUtil;

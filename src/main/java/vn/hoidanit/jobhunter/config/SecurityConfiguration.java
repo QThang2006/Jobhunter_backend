@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -45,7 +46,7 @@ public class SecurityConfiguration {
     private final UserDetailsService userDetailsService;
 
     public SecurityConfiguration(@Qualifier("userDetailService") UserDetailsService userDetailsService,
-                                  OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
+                                  @Lazy OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
         this.userDetailsService = userDetailsService;
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
     }
