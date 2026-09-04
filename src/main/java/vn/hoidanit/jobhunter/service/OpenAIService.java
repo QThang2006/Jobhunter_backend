@@ -20,6 +20,10 @@ public class OpenAIService {
     @Value("${groq.api.key}")
     private String apiKey;
 
+    // 1. Thêm biến đọc model từ config (mặc định là llama-3.3-70b-specdec nếu không khai báo)
+    @Value("${groq.ai.model:llama-3.3-70b-specdec}")
+    private String aiModel;
+
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -30,7 +34,7 @@ public class OpenAIService {
                 ? "DEFAULT_KEY (Check application.properties!)"
                 : apiKey.substring(0, Math.min(apiKey.length(), 6)) + "***";
         System.out.println(">>> GROQ AI READY. Key: " + keyStatus);
-        System.out.println(">>> Model: llama-3.3-70b-versatile (Latest & Reliable)");
+        System.out.println(">>> Model: " + aiModel); // Sử dụng biến aiModel
     }
 
     // --- FUNCTION 1: EXTRACT CRITERIA ---
@@ -54,7 +58,7 @@ public class OpenAIService {
                 - "Java Spring", "Spring Boot" -> ["JAVA SPRING"].
                 - "React", "ReactJS" -> ["REACT.JS"].
                 - "Vue" -> ["VUE.JS"].
-                - MỞ RỘNG LOGIC: Nếu user dùng từ khóa vai trò, hãy thêm các công nghệ liên quan.\s
+                - MỞ RỘNG LOGIC: Nếu user dùng từ khóa vai trò, hãy thêm các công nghệ liên quan. 
                      VD: "Web dev" -> ["HTML", "CSS", "Javascript", "React"].
                      VD: "Cầy Java" -> ["JAVA",...].
                 - LUÔN chuyển về chữ IN HOA khi có thể để khớp Database.
@@ -139,7 +143,7 @@ public class OpenAIService {
             4. KHÔNG liệt kê lại toàn bộ danh sách (vì đã có giao diện hiển thị), chỉ cần viết lời dẫn thu hút.
             """.formatted(userQuestion, foundJobs.size(), jobContext.toString());
 
-        return callAI(prompt, false); // Trả về dạng văn bản (không phải JSON)
+        return callAI(prompt, false);
     }
 
     // --- FUNCTION 3: NO RESULT REPLY (SIMPLE MODE) ---
@@ -149,27 +153,24 @@ public class OpenAIService {
 
     private String callAI(String promptText, boolean jsonMode) {
         try {
-            // 1. Chuẩn bị Headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey); // Groq dùng Bearer token
+            headers.setBearerAuth(apiKey);
 
-            // 2. Chuẩn bị Body (Groq/OpenAI Standard)
             Map<String, Object> message = Map.of("role", "user", "content", promptText);
 
             Map<String, Object> requestBody = new java.util.HashMap<>();
-            requestBody.put("model", "llama-3.3-70b-versatile"); // Model mới nằm ở đây
+            // 2. Thay thế tên model truyền động từ biến aiModel
+            requestBody.put("model", aiModel);
             requestBody.put("messages", List.of(message));
 
             if (jsonMode) {
                 requestBody.put("response_format", Map.of("type", "json_object"));
             }
 
-            // 3. Gọi API
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             Map<String, Object> response = restTemplate.postForObject(GROQ_URL, entity, Map.class);
 
-            // 4. Parse Response (OpenAI Format)
             if (response == null || !response.containsKey("choices")) {
                 return jsonMode ? "{}" : "Hệ thống AI đang bận...";
             }
@@ -195,4 +196,3 @@ public class OpenAIService {
         return cleaned.trim();
     }
 }
-
