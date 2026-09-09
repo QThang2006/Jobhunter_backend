@@ -70,7 +70,7 @@ public class NotificationService {
         notificationRepository.save(notification);
 
         messagingTemplate.convertAndSend(
-                "/topic/notifications/" + user.getEmail(),
+                "/topic/notifications/" + user.getId(),
                 "NEW_NOTIFICATION"
         );
     }

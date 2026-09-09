@@ -78,7 +78,14 @@ public class ResumeService {
 
     public ResCreateResumeDTO create(Resume resume) {
         Resume resume1 = resumeRepository.save(resume);
+        // Broadcast cho admin (reload bảng tổng)
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
+        // Broadcast riêng cho user sở hữu resume (reload "CV của tôi")
+        if (resume1.getUser() != null) {
+            this.simpMessagingTemplate.convertAndSend(
+                    "/topic/resumes/" + resume1.getUser().getId(), "REFRESH"
+            );
+        }
 
         ResCreateResumeDTO res = new ResCreateResumeDTO();
         res.setId(resume1.getId());
@@ -102,8 +109,16 @@ public class ResumeService {
         ResUpdateResumeDTO res = new ResUpdateResumeDTO();
         res.setUpdateAt(resume1.getUpdatedAt());
         res.setUpdateBy(resume1.getUpdatedBy());
+        // Broadcast cho admin (reload bảng tổng)
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
+        // Broadcast riêng cho user sở hữu resume (reload "CV của tôi")
+        if (resume1.getUser() != null) {
+            this.simpMessagingTemplate.convertAndSend(
+                    "/topic/resumes/" + resume1.getUser().getId(), "REFRESH"
+            );
+        }
 
+        // Gửi notification real-time cho user
         notificationService.createResumeNotification(resume1);
 
         return res;
