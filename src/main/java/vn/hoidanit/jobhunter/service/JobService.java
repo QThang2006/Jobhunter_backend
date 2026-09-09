@@ -172,6 +172,10 @@ public class JobService {
 
 
     public ResultPaginationDTO fetchAllJobs(Specification<Job> spec, Pageable pageable) {
+        // Luôn lọc công việc đang hoạt động (active = true) cho người dùng public/client
+        Specification<Job> activeSpec = (root, query, cb) -> cb.isTrue(root.get("active"));
+        spec = (spec == null) ? activeSpec : spec.and(activeSpec);
+
         Page<Job> pageJob = jobRepository.findAll(spec, pageable);
 
         ResultPaginationDTO rs = new ResultPaginationDTO();
@@ -186,6 +190,18 @@ public class JobService {
         rs.setResult(pageJob.getContent());
 
         return rs;
+    }
+
+    public Job updateActiveStatus(long id, boolean active) {
+        Optional<Job> jobOptional = jobRepository.findById(id);
+        if (jobOptional.isPresent()) {
+            Job job = jobOptional.get();
+            job.setActive(active);
+            Job updated = jobRepository.save(job);
+            this.simpMessagingTemplate.convertAndSend("/topic/jobs", "REFRESH");
+            return updated;
+        }
+        return null;
     }
 
     public ResultPaginationDTO fetchAllJobsForAdmin(Specification<Job> spec, Pageable pageable) {

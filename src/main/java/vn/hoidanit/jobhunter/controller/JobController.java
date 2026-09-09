@@ -92,6 +92,15 @@ public class   JobController {
         return ResponseEntity.ok().body(currentJob.get());
     }
 
-
-
+    @PatchMapping("/jobs/{id}/active")
+    @ApiMessage("update job active status")
+    public ResponseEntity<Job> updateActiveStatus(
+            @PathVariable("id") long id,
+            @RequestParam("status") boolean status) throws IdInvalidException {
+        Job job = this.jobService.updateActiveStatus(id, status);
+        if (job == null) {
+            throw new IdInvalidException("Job not found");
+        }
+        return ResponseEntity.ok().body(job);
+    }
 }

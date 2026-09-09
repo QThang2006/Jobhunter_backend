@@ -123,6 +123,9 @@ public class UserService {
             userUpdate = userRepository.save(userUpdate);
         }
         this.simpMessagingTemplate.convertAndSend("/topic/users", "REFRESH");
+        if (userUpdate != null) {
+            this.simpMessagingTemplate.convertAndSend("/topic/users/" + userUpdate.getId(), "ROLE_UPDATED");
+        }
         return userUpdate;
     }
 
