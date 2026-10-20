@@ -23,6 +23,7 @@ import vn.hoidanit.jobhunter.repository.JobRepository;
 import vn.hoidanit.jobhunter.repository.ResumeRepository;
 import vn.hoidanit.jobhunter.repository.UserRepository;
 import vn.hoidanit.jobhunter.util.SecurityUtil;
+import vn.hoidanit.jobhunter.util.constant.ResumeStateEnum;
 
 import java.util.List;
 import java.util.Optional;
@@ -78,9 +79,9 @@ public class ResumeService {
 
     public ResCreateResumeDTO create(Resume resume) {
         Resume resume1 = resumeRepository.save(resume);
-        // Broadcast cho admin (reload bảng tổng)
+        // Broadcast cho admin (reload báº£ng tá»•ng)
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
-        // Broadcast riêng cho user sở hữu resume (reload "CV của tôi")
+        // Broadcast riÃªng cho user sá»Ÿ há»¯u resume (reload "CV cá»§a tÃ´i")
         if (resume1.getUser() != null) {
             this.simpMessagingTemplate.convertAndSend(
                     "/topic/resumes/" + resume1.getUser().getId(), "REFRESH"
@@ -105,20 +106,30 @@ public class ResumeService {
     }
 
     public ResUpdateResumeDTO update(Resume resume) {
+        // Tự động gán nhân viên vào tiệm bánh khi hồ sơ được duyệt (APPROVED)
+        if (resume.getStatus() == ResumeStateEnum.APPROVED && resume.getUser() != null && resume.getJob() != null) {
+            User user = resume.getUser();
+            if (resume.getJob().getCompany() != null) {
+                user.setCompany(resume.getJob().getCompany());
+                this.userRepository.save(user);
+                this.simpMessagingTemplate.convertAndSend("/topic/users/" + user.getId(), "REFRESH");
+            }
+        }
+
         Resume resume1 = resumeRepository.save(resume);
         ResUpdateResumeDTO res = new ResUpdateResumeDTO();
         res.setUpdateAt(resume1.getUpdatedAt());
         res.setUpdateBy(resume1.getUpdatedBy());
-        // Broadcast cho admin (reload bảng tổng)
+        // Broadcast cho admin (reload báº£ng tá»•ng)
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
-        // Broadcast riêng cho user sở hữu resume (reload "CV của tôi")
+        // Broadcast riÃªng cho user sá»Ÿ há»¯u resume (reload "CV cá»§a tÃ´i")
         if (resume1.getUser() != null) {
             this.simpMessagingTemplate.convertAndSend(
                     "/topic/resumes/" + resume1.getUser().getId(), "REFRESH"
             );
         }
 
-        // Gửi notification real-time cho user
+        // Gá»­i notification real-time cho user
         notificationService.createResumeNotification(resume1);
 
         return res;
