@@ -22,6 +22,7 @@ public class Resume {
     private String email;
 
     @NotBlank(message = "url ko duoc de trong (upload cv chua thanh cong)")
+    @Column(columnDefinition = "TEXT")
     private String url;
 
     @Enumerated(EnumType.STRING)

@@ -120,7 +120,7 @@ public class EmailService {
 
         String content = this.templateEngine.process("interview", context);
 
-        String subject = "🎉 Thông báo lịch phỏng vấn - " + companyName;
+        String subject = "🥐 Thư mời thử việc tại tiệm bánh - " + companyName;
         this.sendEmailSync(toEmail, subject, content, false, true);
     }
 
