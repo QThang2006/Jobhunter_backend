@@ -127,15 +127,6 @@ public class DatabaseInitializer implements CommandLineRunner {
             adminRole.setPermissions(allPermissions);
 
             this.roleRepository.save(adminRole);
-        } else {
-            // Ensure existing SUPER_ADMIN role always has all current permissions (including new SHIFTS)
-            Role adminRole = this.roleRepository.findByName("SUPER_ADMIN");
-            if (adminRole != null) {
-                List<Permission> allPerms = this.permissionRepository.findAll();
-                adminRole.setPermissions(allPerms);
-                this.roleRepository.save(adminRole);
-                System.out.println(">>> SYNCED ALL PERMISSIONS TO SUPER_ADMIN ROLE");
-            }
         }
 
         if (countUsers == 0) {
