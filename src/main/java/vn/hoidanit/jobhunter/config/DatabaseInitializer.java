@@ -3,6 +3,7 @@ package vn.hoidanit.jobhunter.config;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.hoidanit.jobhunter.domain.Permission;
 import vn.hoidanit.jobhunter.domain.Role;
 import vn.hoidanit.jobhunter.domain.User;
@@ -34,6 +35,7 @@ public class DatabaseInitializer implements CommandLineRunner {
     }
 
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
         System.out.println(">>> START INIT DATABASE");
         long countPermissions = this.permissionRepository.count();
@@ -130,11 +132,9 @@ public class DatabaseInitializer implements CommandLineRunner {
             Role adminRole = this.roleRepository.findByName("SUPER_ADMIN");
             if (adminRole != null) {
                 List<Permission> allPerms = this.permissionRepository.findAll();
-                if (adminRole.getPermissions() == null || adminRole.getPermissions().size() < allPerms.size()) {
-                    adminRole.setPermissions(allPerms);
-                    this.roleRepository.save(adminRole);
-                    System.out.println(">>> SYNCED ALL PERMISSIONS TO SUPER_ADMIN ROLE");
-                }
+                adminRole.setPermissions(allPerms);
+                this.roleRepository.save(adminRole);
+                System.out.println(">>> SYNCED ALL PERMISSIONS TO SUPER_ADMIN ROLE");
             }
         }
 
