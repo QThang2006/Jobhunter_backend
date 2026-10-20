@@ -31,6 +31,13 @@ public class Resume {
     @Column(columnDefinition = "TEXT")
     private String meetLink;
 
+    private String interviewDate;
+    private String interviewTime;
+    private String interviewType; // "ONLINE_MEET" | "OFFLINE"
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
+
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

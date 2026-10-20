@@ -19,6 +19,12 @@ public class ResFetchResumeDTO {
     @Enumerated(EnumType.STRING)
     private ResumeStateEnum status;
 
+    private String meetLink;
+    private String interviewDate;
+    private String interviewTime;
+    private String interviewType;
+    private String note;
+
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

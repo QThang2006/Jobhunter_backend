@@ -141,6 +141,11 @@ public class ResumeService {
         res.setStatus(resume.getStatus());
         res.setEmail(resume.getEmail());
         res.setUrl(resume.getUrl());
+        res.setMeetLink(resume.getMeetLink());
+        res.setInterviewDate(resume.getInterviewDate());
+        res.setInterviewTime(resume.getInterviewTime());
+        res.setInterviewType(resume.getInterviewType());
+        res.setNote(resume.getNote());
         res.setCreatedAt(resume.getCreatedAt());
         res.setUpdatedAt(resume.getUpdatedAt());
         res.setCreatedBy(resume.getCreatedBy());

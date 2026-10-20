@@ -6,8 +6,10 @@ import vn.hoidanit.jobhunter.domain.Resume;
 import vn.hoidanit.jobhunter.domain.response.email.ResEmailInterview;
 import vn.hoidanit.jobhunter.repository.ResumeRepository;
 import vn.hoidanit.jobhunter.service.EmailService;
+import vn.hoidanit.jobhunter.service.ResumeService;
 import vn.hoidanit.jobhunter.service.SubscriberService;
 import vn.hoidanit.jobhunter.util.annotation.ApiMessage;
+import vn.hoidanit.jobhunter.util.constant.ResumeStateEnum;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -15,11 +17,18 @@ public class EmailController {
     private final EmailService emailService;
     private final SubscriberService subscriberService;
     private final ResumeRepository resumeRepository;
+    private final ResumeService resumeService;
 
-    public EmailController(EmailService emailService, SubscriberService subscriberService, ResumeRepository resumeRepository) {
+    public EmailController(
+            EmailService emailService,
+            SubscriberService subscriberService,
+            ResumeRepository resumeRepository,
+            ResumeService resumeService
+    ) {
         this.emailService = emailService;
         this.subscriberService = subscriberService;
         this.resumeRepository = resumeRepository;
+        this.resumeService = resumeService;
     }
 
     @GetMapping("/email")
@@ -29,11 +38,19 @@ public class EmailController {
         return "ok";
     }
 
-    @PostMapping("/email/approve")
+    @PostMapping({"/email/approve", "/email/schedule-interview"})
     public ResponseEntity<ResEmailInterview> sendApprovalEmail(@RequestBody ResEmailInterview reqInterview) {
         // Lấy thông tin resume từ DB
         Resume resume = resumeRepository.findById(reqInterview.getResumeId())
                 .orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        // Khi lên lịch phỏng vấn: Chuyển trạng thái sang REVIEWING (đang phỏng vấn/xem xét)
+        // và lưu thông tin ngày giờ, hình thức phỏng vấn vào DB
+        resume.setStatus(ResumeStateEnum.REVIEWING);
+        resume.setInterviewDate(reqInterview.getInterviewDate());
+        resume.setInterviewTime(reqInterview.getInterviewTime());
+        resume.setInterviewType(reqInterview.getInterviewType());
+        resume.setNote(reqInterview.getNote());
 
         if ("ONLINE_MEET".equalsIgnoreCase(reqInterview.getInterviewType())) {
             // Tự động hóa qua n8n Workflow: Tạo Google Meet & gửi thư mời
@@ -50,10 +67,10 @@ public class EmailController {
 
             if (meetLink != null && !meetLink.isBlank()) {
                 resume.setMeetLink(meetLink);
-                resumeRepository.save(resume);
                 reqInterview.setMeetLink(meetLink);
             } else {
                 // Fallback nếu n8n chưa bật: gửi email trực tiếp qua SMTP
+                resume.setMeetLink(null);
                 emailService.sendInterviewInvitationEmail(
                         resume.getJob().getCompany().getId().toString(),
                         resume.getEmail(),
@@ -65,17 +82,22 @@ public class EmailController {
                 );
             }
         } else {
-            // Thử việc / phỏng vấn trực tiếp tại tiệm: Gửi email truyền thống
+            // Phỏng vấn / Thử việc trực tiếp tại tiệm: Gửi email truyền thống qua SMTP
+            resume.setMeetLink(null);
             emailService.sendInterviewInvitationEmail(
                     resume.getJob().getCompany().getId().toString(),
-                    resume.getEmail(),                        // to
-                    resume.getUser() != null ? resume.getUser().getName() : "Ứng viên", // candidateName
-                    resume.getJob().getCompany().getName(),            // companyName
-                    resume.getJob().getName(),                // jobName
-                    reqInterview.getInterviewDate(),                   // interviewDate
-                    reqInterview.getInterviewTime()                    // interviewTime
+                    resume.getEmail(),
+                    resume.getUser() != null ? resume.getUser().getName() : "Ứng viên",
+                    resume.getJob().getCompany().getName(),
+                    resume.getJob().getName(),
+                    reqInterview.getInterviewDate(),
+                    reqInterview.getInterviewTime()
             );
         }
+
+        // Lưu vào DB và broadcast thông báo real-time qua WebSocket
+        resumeRepository.save(resume);
+        resumeService.update(resume);
 
         return ResponseEntity.ok().body(reqInterview);
     }

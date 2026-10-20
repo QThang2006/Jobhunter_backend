@@ -51,8 +51,15 @@ public class NotificationService {
                         + " của bạn lần này. Đừng nản lòng, hãy thử cơ hội khác!";
                 break;
             case REVIEWING:
-                title = "Hồ sơ đang được xem xét";
-                body = companyName + " đang trong quá trình xem xét hồ sơ " + jobName + " của bạn.";
+                if (resume.getInterviewDate() != null && !resume.getInterviewDate().isBlank()) {
+                    title = "Lịch phỏng vấn mới! 📅";
+                    body = companyName + " đã xếp lịch phỏng vấn vị trí " + jobName + " vào lúc "
+                            + resume.getInterviewTime() + " ngày " + resume.getInterviewDate()
+                            + ("ONLINE_MEET".equalsIgnoreCase(resume.getInterviewType()) ? " (Google Meet)" : " (Tại tiệm)");
+                } else {
+                    title = "Hồ sơ đang được xem xét";
+                    body = companyName + " đang trong quá trình xem xét hồ sơ " + jobName + " của bạn.";
+                }
                 break;
             default:
                 title = "Đơn ứng tuyển đã được cập nhật";
