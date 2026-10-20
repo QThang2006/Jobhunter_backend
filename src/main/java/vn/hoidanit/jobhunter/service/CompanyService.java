@@ -5,10 +5,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.hoidanit.jobhunter.domain.Company;
+import vn.hoidanit.jobhunter.domain.Job;
+import vn.hoidanit.jobhunter.domain.Resume;
 import vn.hoidanit.jobhunter.domain.User;
 import vn.hoidanit.jobhunter.domain.response.ResultPaginationDTO;
 import vn.hoidanit.jobhunter.repository.CompanyRepository;
+import vn.hoidanit.jobhunter.repository.JobRepository;
+import vn.hoidanit.jobhunter.repository.NotificationRepository;
+import vn.hoidanit.jobhunter.repository.ResumeRepository;
 import vn.hoidanit.jobhunter.repository.UserRepository;
 import vn.hoidanit.jobhunter.util.SecurityUtil;
 
@@ -20,12 +26,23 @@ public class CompanyService {
 
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
+    private final JobRepository jobRepository;
+    private final ResumeRepository resumeRepository;
+    private final NotificationRepository notificationRepository;
     private final SimpMessagingTemplate simpMessagingTemplate;
 
-    public CompanyService(CompanyRepository companyRepository, UserRepository userRepository, SimpMessagingTemplate simpMessagingTemplate) {
+    public CompanyService(
+            CompanyRepository companyRepository,
+            UserRepository userRepository,
+            JobRepository jobRepository,
+            ResumeRepository resumeRepository,
+            NotificationRepository notificationRepository,
+            SimpMessagingTemplate simpMessagingTemplate) {
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
-
+        this.jobRepository = jobRepository;
+        this.resumeRepository = resumeRepository;
+        this.notificationRepository = notificationRepository;
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
 
@@ -58,12 +75,12 @@ public class CompanyService {
             String email = currentUserLogin.get();
             User currentUser = this.userRepository.findByEmail(email);
 
-        if (currentUser != null && currentUser.getCompany() != null) {
-                    Long companyId = currentUser.getCompany().getId();
-                    Specification<Company> companyIdSpec = (root, query, cb) ->
-                            cb.equal(root.get("id"), companyId);
-                    spec = (spec == null) ? companyIdSpec : spec.and(companyIdSpec);
-                }
+            if (currentUser != null && currentUser.getCompany() != null) {
+                Long companyId = currentUser.getCompany().getId();
+                Specification<Company> companyIdSpec = (root, query, cb) ->
+                        cb.equal(root.get("id"), companyId);
+                spec = (spec == null) ? companyIdSpec : spec.and(companyIdSpec);
+            }
         }
 
         Page<Company> pageCompany = this.companyRepository.findAll(spec, pageable);
@@ -96,20 +113,54 @@ public class CompanyService {
         return null;
     }
 
+    @Transactional
     public void handleDeleteCompany(Long id){
         Optional<Company> companyOptional = companyRepository.findById(id);
         if(companyOptional.isPresent()){
             Company com = companyOptional.get();
+
+            // 1. Reset user company and role to null (khách vãng lai)
             List<User> users = userRepository.findByCompany(com);
-            users.forEach(item -> {
-                item.setCompany(null);
-                item.setRole(null);
-            });
-            userRepository.saveAll(users);
+            if(users != null && !users.isEmpty()){
+                users.forEach(item -> {
+                    item.setCompany(null);
+                    item.setRole(null);
+                });
+                userRepository.saveAll(users);
+            }
+
+            // 2. Tìm tất cả tin tuyển dụng (jobs) thuộc công ty này
+            List<Job> jobs = jobRepository.findByCompany(com);
+            if(jobs != null && !jobs.isEmpty()){
+                // 3. Tìm và xóa toàn bộ hồ sơ (resumes) ứng tuyển vào các jobs này
+                List<Resume> resumes = resumeRepository.findByJobIn(jobs);
+                if(resumes != null && !resumes.isEmpty()){
+                    // Ngắt liên kết thông báo liên quan tới resume tránh lỗi ràng buộc khoá ngoại
+                    notificationRepository.nullifyResumeIn(resumes);
+                    // Broadcast cập nhật lại cho từng ứng viên nộp hồ sơ
+                    resumes.stream()
+                            .map(Resume::getUser)
+                            .filter(u -> u != null && u.getId() != null)
+                            .map(User::getId)
+                            .distinct()
+                            .forEach(userId -> {
+                                this.simpMessagingTemplate.convertAndSend("/topic/resumes/" + userId, "REFRESH");
+                            });
+                    resumeRepository.deleteAll(resumes);
+                }
+                // 4. Xóa tất cả jobs
+                jobRepository.deleteAll(jobs);
+            }
+
+            // 5. Xóa công ty
+            companyRepository.delete(com);
         }
+
+        // 6. Broadcast cập nhật realtime tới tất cả các bảng liên quan
         this.simpMessagingTemplate.convertAndSend("/topic/companies", "REFRESH");
         this.simpMessagingTemplate.convertAndSend("/topic/users", "REFRESH");
-        companyRepository.deleteById(id);
+        this.simpMessagingTemplate.convertAndSend("/topic/jobs", "REFRESH");
+        this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
     }
 
     public Optional<Company> findById(long id){

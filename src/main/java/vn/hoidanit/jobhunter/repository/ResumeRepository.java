@@ -10,4 +10,5 @@ import java.util.List;
 public interface ResumeRepository extends JpaRepository<Resume,Long>, JpaSpecificationExecutor<Resume> {
     Long deleteByIdIn(List<Long> id);
     List<Resume> findByEmailAndJob(String email, Job JobId);
+    List<Resume> findByJobIn(List<Job> jobs);
 }
