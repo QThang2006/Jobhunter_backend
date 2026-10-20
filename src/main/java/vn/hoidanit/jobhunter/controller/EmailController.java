@@ -25,29 +25,58 @@ public class EmailController {
     @GetMapping("/email")
     @ApiMessage("send simple email")
     public String sendSimpleEmail(){
-//        emailService.sendEmailSync("quocthangngo2006@gmail.com","test email","<h1> <b> hello </b> <h1>",false,true);
-//        emailService.sendEmailFromTemplateSync("quocthangngo2006@gmail.com","test email","test");
         subscriberService.sendSubscribersEmailJobs();
         return "ok";
     }
 
     @PostMapping("/email/approve")
-    public ResponseEntity<Void> sendApprovalEmail(@RequestBody ResEmailInterview reqInterview) {
+    public ResponseEntity<ResEmailInterview> sendApprovalEmail(@RequestBody ResEmailInterview reqInterview) {
         // Lấy thông tin resume từ DB
         Resume resume = resumeRepository.findById(reqInterview.getResumeId())
                 .orElseThrow(() -> new RuntimeException("Resume not found"));
 
-        // Gửi email
-        emailService.sendInterviewInvitationEmail(
-                resume.getJob().getCompany().getId().toString(),
-                resume.getEmail(),                        // to
-                resume.getUser().getName(),               // candidateName
-                resume.getJob().getCompany().getName(),            // companyName
-                resume.getJob().getName(),                // jobName
-                reqInterview.getInterviewDate(),                   // interviewDate
-                reqInterview.getInterviewTime()                    // interviewTime
-        );
+        if ("ONLINE_MEET".equalsIgnoreCase(reqInterview.getInterviewType())) {
+            // Tự động hóa qua n8n Workflow: Tạo Google Meet & gửi thư mời
+            String meetLink = emailService.triggerN8nInterviewMeet(
+                    resume.getId(),
+                    resume.getEmail(),
+                    resume.getUser() != null ? resume.getUser().getName() : "Ứng viên",
+                    resume.getJob() != null && resume.getJob().getCompany() != null ? resume.getJob().getCompany().getName() : "Tiệm Bánh",
+                    resume.getJob() != null ? resume.getJob().getName() : "Vị trí ứng tuyển",
+                    reqInterview.getInterviewDate(),
+                    reqInterview.getInterviewTime(),
+                    reqInterview.getNote()
+            );
 
-        return ResponseEntity.ok().body(null);
+            if (meetLink != null && !meetLink.isBlank()) {
+                resume.setMeetLink(meetLink);
+                resumeRepository.save(resume);
+                reqInterview.setMeetLink(meetLink);
+            } else {
+                // Fallback nếu n8n chưa bật: gửi email trực tiếp qua SMTP
+                emailService.sendInterviewInvitationEmail(
+                        resume.getJob().getCompany().getId().toString(),
+                        resume.getEmail(),
+                        resume.getUser() != null ? resume.getUser().getName() : "Ứng viên",
+                        resume.getJob().getCompany().getName(),
+                        resume.getJob().getName(),
+                        reqInterview.getInterviewDate(),
+                        reqInterview.getInterviewTime()
+                );
+            }
+        } else {
+            // Thử việc / phỏng vấn trực tiếp tại tiệm: Gửi email truyền thống
+            emailService.sendInterviewInvitationEmail(
+                    resume.getJob().getCompany().getId().toString(),
+                    resume.getEmail(),                        // to
+                    resume.getUser() != null ? resume.getUser().getName() : "Ứng viên", // candidateName
+                    resume.getJob().getCompany().getName(),            // companyName
+                    resume.getJob().getName(),                // jobName
+                    reqInterview.getInterviewDate(),                   // interviewDate
+                    reqInterview.getInterviewTime()                    // interviewTime
+            );
+        }
+
+        return ResponseEntity.ok().body(reqInterview);
     }
 }

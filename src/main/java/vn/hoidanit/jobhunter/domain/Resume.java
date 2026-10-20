@@ -28,6 +28,9 @@ public class Resume {
     @Enumerated(EnumType.STRING)
     private ResumeStateEnum status;
 
+    @Column(columnDefinition = "TEXT")
+    private String meetLink;
+
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

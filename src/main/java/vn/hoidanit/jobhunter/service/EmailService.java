@@ -1,10 +1,9 @@
 package vn.hoidanit.jobhunter.service;
 
-
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.apache.catalina.LifecycleState;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -15,14 +14,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
-import vn.hoidanit.jobhunter.config.AppConfig;
-import vn.hoidanit.jobhunter.domain.Job;
 import vn.hoidanit.jobhunter.domain.response.email.EmailValidationResponse;
 import vn.hoidanit.jobhunter.repository.JobRepository;
-import vn.hoidanit.jobhunter.util.error.IdInvalidException;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 
 @Service
 public class EmailService {
@@ -33,6 +34,9 @@ public class EmailService {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    @Value("${n8n.webhook.interview-meet-url:http://localhost:5678/webhook/interview-meet}")
+    private String n8nWebhookUrl;
 
     public EmailService(MailSender mailSender, JavaMailSender javaMailSender, SpringTemplateEngine templateEngine, JobRepository jobRepository) {
         this.mailSender = mailSender;
@@ -51,17 +55,12 @@ public class EmailService {
 
             if (response != null && response.getEmailDeliverability() != null) {
                 boolean result = response.getEmailDeliverability().isSmtpValid();
-                // IN LOG NÀY ĐỂ XEM TRÊN RENDER: API thực tế trả về true hay false
                 System.out.println(">>> [ABSTRACT API SUCCESS] Email: " + email + " -> isSmtpValid: " + result);
                 return result;
             }
         } catch (Exception e) {
-            // IN THẲNG LỖI RA CONSOLE ĐỂ RENDER BẮT ĐƯỢC LOG
             System.err.println(">>> [ABSTRACT API CRASH] Lỗi kết nối API hoặc quá giới hạn 429: " + e.getMessage());
             e.printStackTrace();
-
-            // Thay vì throw Exception làm sập luồng ngầm, hãy trả về false
-            // để hệ thống biết là KHÔNG XÁC THỰC ĐƯỢC (Coi như email giả để chặn lại)
             return false;
         }
         return false;
@@ -77,7 +76,6 @@ public class EmailService {
     }
 
     public void sendEmailSync(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
-        // Prepare message using a Spring helper
         MimeMessage mimeMessage = this.javaMailSender.createMimeMessage();
         try {
             MimeMessageHelper message = new MimeMessageHelper(mimeMessage, isMultipart, StandardCharsets.UTF_8.name());
@@ -124,5 +122,46 @@ public class EmailService {
         this.sendEmailSync(toEmail, subject, content, false, true);
     }
 
+    /**
+     * Kích hoạt Workflow n8n để tạo lịch Google Meet & tự động gửi mail cho ứng viên
+     */
+    public String triggerN8nInterviewMeet(
+            Long resumeId,
+            String candidateEmail,
+            String candidateName,
+            String companyName,
+            String jobTitle,
+            String interviewDate,
+            String interviewTime,
+            String note
+    ) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("resumeId", resumeId);
+            payload.put("candidateEmail", candidateEmail);
+            payload.put("candidateName", candidateName);
+            payload.put("companyName", companyName);
+            payload.put("jobTitle", jobTitle);
+            payload.put("interviewDate", interviewDate);
+            payload.put("interviewTime", interviewTime);
+            payload.put("note", note != null ? note : "Phỏng vấn trực tuyến qua Google Meet");
+            payload.put("durationMinutes", 45);
 
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+            ResponseEntity<Map> response = restTemplate.postForEntity(n8nWebhookUrl, entity, Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Object meetLink = response.getBody().get("meetLink");
+                if (meetLink != null) {
+                    System.out.println(">>> [N8N SUCCESS] Đã tạo link Google Meet thành công: " + meetLink);
+                    return meetLink.toString();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println(">>> [N8N WEBHOOK ERROR] Lỗi khi gọi webhook n8n: " + e.getMessage());
+        }
+        return null;
+    }
 }

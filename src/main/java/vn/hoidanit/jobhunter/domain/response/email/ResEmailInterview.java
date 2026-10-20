@@ -9,4 +9,7 @@ public class ResEmailInterview {
     private long resumeId;
     private String interviewDate;
     private String interviewTime;
+    private String interviewType; // "ONLINE_MEET" | "OFFLINE"
+    private String meetLink;
+    private String note;
 }
