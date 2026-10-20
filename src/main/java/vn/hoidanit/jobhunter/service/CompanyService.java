@@ -99,12 +99,16 @@ public class CompanyService {
     public void handleDeleteCompany(Long id){
         Optional<Company> companyOptional = companyRepository.findById(id);
         if(companyOptional.isPresent()){
-            Company com =companyOptional.get();
+            Company com = companyOptional.get();
             List<User> users = userRepository.findByCompany(com);
-            users.forEach(item -> item.setCompany(null));
+            users.forEach(item -> {
+                item.setCompany(null);
+                item.setRole(null);
+            });
             userRepository.saveAll(users);
         }
         this.simpMessagingTemplate.convertAndSend("/topic/companies", "REFRESH");
+        this.simpMessagingTemplate.convertAndSend("/topic/users", "REFRESH");
         companyRepository.deleteById(id);
     }
 
