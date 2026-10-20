@@ -87,7 +87,32 @@ public class DatabaseInitializer implements CommandLineRunner {
             arr.add(new Permission("Download a file", "/api/v1/files", "POST", "FILES"));
             arr.add(new Permission("Upload a file", "/api/v1/files", "GET", "FILES"));
 
+            arr.add(new Permission("Create a shift", "/api/v1/shifts", "POST", "SHIFTS"));
+            arr.add(new Permission("Update a shift", "/api/v1/shifts/{id}", "PUT", "SHIFTS"));
+            arr.add(new Permission("Delete a shift", "/api/v1/shifts/{id}", "DELETE", "SHIFTS"));
+            arr.add(new Permission("Get a shift by id", "/api/v1/shifts/{id}", "GET", "SHIFTS"));
+            arr.add(new Permission("Get shifts with pagination", "/api/v1/shifts", "GET", "SHIFTS"));
+            arr.add(new Permission("Transfer a shift", "/api/v1/shifts/transfer", "POST", "SHIFTS"));
+
             this.permissionRepository.saveAll(arr);
+        }
+
+        // Auto-seed SHIFTS permissions if not present yet in existing database
+        List<Permission> existingShiftPerms = this.permissionRepository.findAll().stream()
+                .filter(p -> "SHIFTS".equalsIgnoreCase(p.getModule()))
+                .toList();
+
+        if (existingShiftPerms.isEmpty()) {
+            ArrayList<Permission> shiftPerms = new ArrayList<>();
+            shiftPerms.add(new Permission("Create a shift", "/api/v1/shifts", "POST", "SHIFTS"));
+            shiftPerms.add(new Permission("Update a shift", "/api/v1/shifts/{id}", "PUT", "SHIFTS"));
+            shiftPerms.add(new Permission("Delete a shift", "/api/v1/shifts/{id}", "DELETE", "SHIFTS"));
+            shiftPerms.add(new Permission("Get a shift by id", "/api/v1/shifts/{id}", "GET", "SHIFTS"));
+            shiftPerms.add(new Permission("Get shifts with pagination", "/api/v1/shifts", "GET", "SHIFTS"));
+            shiftPerms.add(new Permission("Transfer a shift", "/api/v1/shifts/transfer", "POST", "SHIFTS"));
+
+            this.permissionRepository.saveAll(shiftPerms);
+            System.out.println(">>> SEEDED SHIFTS PERMISSIONS SUCCESSFULLY");
         }
 
         if (countRoles == 0) {
@@ -100,6 +125,17 @@ public class DatabaseInitializer implements CommandLineRunner {
             adminRole.setPermissions(allPermissions);
 
             this.roleRepository.save(adminRole);
+        } else {
+            // Ensure existing SUPER_ADMIN role always has all current permissions (including new SHIFTS)
+            Role adminRole = this.roleRepository.findByName("SUPER_ADMIN");
+            if (adminRole != null) {
+                List<Permission> allPerms = this.permissionRepository.findAll();
+                if (adminRole.getPermissions() == null || adminRole.getPermissions().size() < allPerms.size()) {
+                    adminRole.setPermissions(allPerms);
+                    this.roleRepository.save(adminRole);
+                    System.out.println(">>> SYNCED ALL PERMISSIONS TO SUPER_ADMIN ROLE");
+                }
+            }
         }
 
         if (countUsers == 0) {
