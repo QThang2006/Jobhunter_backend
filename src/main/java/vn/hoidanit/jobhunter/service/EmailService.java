@@ -35,7 +35,7 @@ public class EmailService {
     @Autowired
     private RestTemplate restTemplate;
 
-    @Value("${n8n.webhook.interview-meet-url}")
+    @Value("${n8n.webhook.interview-meet-url:https://thang162006.app.n8n.cloud/webhook/interview-meet}")
     private String n8nWebhookUrl;
 
     public EmailService(MailSender mailSender, JavaMailSender javaMailSender, SpringTemplateEngine templateEngine, JobRepository jobRepository) {
@@ -175,7 +175,9 @@ public class EmailService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
+            System.out.println(">>> [N8N CALL] Dang goi webhook: " + n8nWebhookUrl);
             ResponseEntity<Map> response = restTemplate.postForEntity(n8nWebhookUrl, entity, Map.class);
+            System.out.println(">>> [N8N RESPONSE] Status: " + response.getStatusCode() + ", Body: " + response.getBody());
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Object meetLink = response.getBody().get("meetLink");
                 if (meetLink != null) {
@@ -185,6 +187,7 @@ public class EmailService {
             }
         } catch (Exception e) {
             System.err.println(">>> [N8N WEBHOOK ERROR] Lỗi khi gọi webhook n8n: " + e.getMessage());
+            e.printStackTrace();
         }
         return null;
     }
