@@ -86,6 +86,15 @@ public class ResumeController {
         }
 
         Resume reqResume = resumeOptional.get();
+        String email = SecurityUtil.getCurrentUserLogin().orElse("");
+        User currentUser = userService.handleGetUserByUsername(email);
+        if (currentUser != null && currentUser.getCompany() != null) {
+            Long userCompanyId = currentUser.getCompany().getId();
+            if (reqResume.getJob() == null || reqResume.getJob().getCompany() == null
+                    || !userCompanyId.equals(reqResume.getJob().getCompany().getId())) {
+                throw new IdInvalidException("Bạn không có quyền cập nhật hồ sơ của công ty khác");
+            }
+        }
         reqResume.setStatus(resume.getStatus());
         if (resume.getInterviewDate() != null) reqResume.setInterviewDate(resume.getInterviewDate());
         if (resume.getInterviewTime() != null) reqResume.setInterviewTime(resume.getInterviewTime());
@@ -104,6 +113,17 @@ public class ResumeController {
             throw new IdInvalidException("Resume voi id = " + id + " ko ton tai");
         }
 
+        Resume reqResume = reqResumeOptional.get();
+        String email = SecurityUtil.getCurrentUserLogin().orElse("");
+        User currentUser = userService.handleGetUserByUsername(email);
+        if (currentUser != null && currentUser.getCompany() != null) {
+            Long userCompanyId = currentUser.getCompany().getId();
+            if (reqResume.getJob() == null || reqResume.getJob().getCompany() == null
+                    || !userCompanyId.equals(reqResume.getJob().getCompany().getId())) {
+                throw new IdInvalidException("Bạn không có quyền xóa hồ sơ của công ty khác");
+            }
+        }
+
         resumeService.delete(id);
 
         return ResponseEntity.ok().body(null);
@@ -117,7 +137,18 @@ public class ResumeController {
             throw new IdInvalidException("Resume voi id = " + id + " ko ton tai");
         }
 
-        return ResponseEntity.ok().body(resumeService.getResume(reqResumeOptional.get()));
+        Resume reqResume = reqResumeOptional.get();
+        String email = SecurityUtil.getCurrentUserLogin().orElse("");
+        User currentUser = userService.handleGetUserByUsername(email);
+        if (currentUser != null && currentUser.getCompany() != null) {
+            Long userCompanyId = currentUser.getCompany().getId();
+            if (reqResume.getJob() == null || reqResume.getJob().getCompany() == null
+                    || !userCompanyId.equals(reqResume.getJob().getCompany().getId())) {
+                throw new IdInvalidException("Bạn không có quyền xem hồ sơ của công ty khác");
+            }
+        }
+
+        return ResponseEntity.ok().body(resumeService.getResume(reqResume));
     }
 
     @GetMapping("/resumes")
@@ -126,29 +157,14 @@ public class ResumeController {
             @Filter Specification<Resume> spec,
             Pageable pageable ) {
 
-        List<Long> arrJobIds = null;
-        String email = SecurityUtil.getCurrentUserLogin().isPresent() == true
-                ? SecurityUtil.getCurrentUserLogin().get()
-                : "" ;
+        Specification<Resume> finalSpec = spec;
+        String email = SecurityUtil.getCurrentUserLogin().orElse("");
         User currentUser = userService.handleGetUserByUsername(email);
-        if(currentUser != null){
-            Company userCompany = currentUser.getCompany();
-            if(userCompany != null){
-                List<Job> companyJobs = userCompany.getJobs();
-                if(companyJobs != null && companyJobs.size() > 0){
-                    arrJobIds = companyJobs.stream().map(x -> x.getId())
-                            .collect(Collectors.toList());
-                }
-            }
-        }
-
-        Specification<Resume> finalSpec = spec; // Mặc định chỉ dùng spec từ filter frontend
-
-        // Chỉ khi nào arrJobIds CÓ DỮ LIỆU (tức là HR của công ty) thì mới lọc thêm
-        if (arrJobIds != null && !arrJobIds.isEmpty()) {
-            Specification<Resume> jobInSpec = filterSpecificationConverter.convert(fiterBuilder.field("job")
-                    .in(fiterBuilder.input(arrJobIds)).get());
-            finalSpec = finalSpec.and(jobInSpec);
+        if (currentUser != null && currentUser.getCompany() != null) {
+            Long companyId = currentUser.getCompany().getId();
+            Specification<Resume> companySpec = (root, query, cb) ->
+                    cb.equal(root.get("job").get("company").get("id"), companyId);
+            finalSpec = (finalSpec == null) ? companySpec : finalSpec.and(companySpec);
         }
 
         return ResponseEntity.status(HttpStatus.OK).body(resumeService.fetchAllResume(finalSpec, pageable));

@@ -44,6 +44,14 @@ public class JobService {
     }
 
     public ResCreateJobDTO create(Job j) {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                j.setCompany(currentUser.getCompany());
+            }
+        }
+
         if(j.getSkills() != null ){
             List<Long> reqSkills = j.getSkills()
                     .stream()
@@ -99,14 +107,11 @@ public class JobService {
                 ? SecurityUtil.getCurrentUserLogin().get()
                 : "" ;
         User user = userRepository.findByEmail(email);
-        boolean a=true;
-        if (user.getRole().getName().equals("SUPER_ADMIN")){
-            a=false;
-        }
-        if(a) {
-            if (!user.getCompany().getName().equals(j.getCompany().getName())) {
-                throw new IdInvalidException("bạn ko có quyền này");
+        if (user != null && user.getCompany() != null) {
+            if (jobInDB.getCompany() == null || !user.getCompany().getId().equals(jobInDB.getCompany().getId())) {
+                throw new IdInvalidException("Bạn không có quyền sửa đổi việc làm của công ty khác");
             }
+            j.setCompany(user.getCompany());
         }
         if(j.getSkills() != null ){
             List<Long> reqSkills = j.getSkills()
@@ -163,7 +168,18 @@ public class JobService {
     }
 
     @Transactional
-    public void delete(long id, List<Long> resumeId) {
+    public void delete(long id, List<Long> resumeId) throws IdInvalidException {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                Optional<Job> jOpt = jobRepository.findById(id);
+                if (jOpt.isPresent() && (jOpt.get().getCompany() == null || !currentUser.getCompany().getId().equals(jOpt.get().getCompany().getId()))) {
+                    throw new IdInvalidException("Bạn không có quyền xóa việc làm của công ty khác");
+                }
+            }
+        }
+
         resumeRepository.deleteByIdIn(resumeId);
         jobRepository.deleteById(id);
         simpMessagingTemplate.convertAndSend("/topic/jobs", "REFRESH");
@@ -196,6 +212,17 @@ public class JobService {
         Optional<Job> jobOptional = jobRepository.findById(id);
         if (jobOptional.isPresent()) {
             Job job = jobOptional.get();
+
+            Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                User currentUser = userRepository.findByEmail(currentUserLogin.get());
+                if (currentUser != null && currentUser.getCompany() != null) {
+                    if (job.getCompany() == null || !currentUser.getCompany().getId().equals(job.getCompany().getId())) {
+                        return null;
+                    }
+                }
+            }
+
             job.setActive(active);
             Job updated = jobRepository.save(job);
             this.simpMessagingTemplate.convertAndSend("/topic/jobs", "REFRESH");

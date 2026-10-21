@@ -11,6 +11,7 @@ import vn.hoidanit.jobhunter.domain.request.shift.ReqTransferWorkShiftDTO;
 import vn.hoidanit.jobhunter.domain.response.ResultPaginationDTO;
 import vn.hoidanit.jobhunter.domain.response.shift.ResWorkShiftDTO;
 import vn.hoidanit.jobhunter.repository.*;
+import vn.hoidanit.jobhunter.util.SecurityUtil;
 import vn.hoidanit.jobhunter.util.constant.WorkShiftStatusEnum;
 import vn.hoidanit.jobhunter.util.error.IdInvalidException;
 
@@ -43,6 +44,14 @@ public class WorkShiftService {
     }
 
     public ResWorkShiftDTO create(ReqCreateWorkShiftDTO req) throws IdInvalidException {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                req.setCompanyId(currentUser.getCompany().getId());
+            }
+        }
+
         Optional<User> userOpt = this.userRepository.findById(req.getUserId());
         if (userOpt.isEmpty()) {
             throw new IdInvalidException("Nhân viên với id = " + req.getUserId() + " không tồn tại");
@@ -93,6 +102,17 @@ public class WorkShiftService {
         }
 
         WorkShift current = shiftOpt.get();
+
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                if (current.getCompany() == null || !current.getCompany().getId().equals(currentUser.getCompany().getId())) {
+                    throw new IdInvalidException("Bạn không có quyền sửa đổi ca làm việc của công ty khác");
+                }
+            }
+        }
+
         if (req.getShiftName() != null) current.setShiftName(req.getShiftName());
         if (req.getShiftDate() != null) current.setShiftDate(req.getShiftDate());
         if (req.getStartTime() != null) current.setStartTime(req.getStartTime());
@@ -129,6 +149,19 @@ public class WorkShiftService {
         WorkShift shift = shiftOpt.get();
         User oldUser = shift.getUser();
         User newUser = newUserOpt.get();
+
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                if (shift.getCompany() == null || !shift.getCompany().getId().equals(currentUser.getCompany().getId())) {
+                    throw new IdInvalidException("Bạn không có quyền chuyển ca làm việc của công ty khác");
+                }
+                if (newUser.getCompany() == null || !newUser.getCompany().getId().equals(currentUser.getCompany().getId())) {
+                    throw new IdInvalidException("Không thể chuyển ca cho nhân viên của công ty khác");
+                }
+            }
+        }
 
         String oldUserName = oldUser != null ? oldUser.getName() : "Nhân viên cũ";
         String newUserName = newUser.getName();
@@ -179,6 +212,17 @@ public class WorkShiftService {
             throw new IdInvalidException("Ca làm việc với id = " + id + " không tồn tại");
         }
         WorkShift shift = shiftOpt.get();
+
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                if (shift.getCompany() == null || !shift.getCompany().getId().equals(currentUser.getCompany().getId())) {
+                    throw new IdInvalidException("Bạn không có quyền xóa ca làm việc của công ty khác");
+                }
+            }
+        }
+
         Long userId = shift.getUser() != null ? shift.getUser().getId() : null;
 
         this.workShiftRepository.deleteById(id);
@@ -194,10 +238,33 @@ public class WorkShiftService {
         if (shiftOpt.isEmpty()) {
             throw new IdInvalidException("Ca làm việc với id = " + id + " không tồn tại");
         }
-        return convertToDTO(shiftOpt.get());
+        WorkShift shift = shiftOpt.get();
+
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                if (shift.getCompany() == null || !shift.getCompany().getId().equals(currentUser.getCompany().getId())) {
+                    throw new IdInvalidException("Bạn không có quyền xem ca làm việc của công ty khác");
+                }
+            }
+        }
+
+        return convertToDTO(shift);
     }
 
     public ResultPaginationDTO fetchAll(Specification<WorkShift> spec, Pageable pageable) {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                Long companyId = currentUser.getCompany().getId();
+                Specification<WorkShift> companySpec = (root, query, cb) ->
+                        cb.equal(root.get("company").get("id"), companyId);
+                spec = (spec == null) ? companySpec : spec.and(companySpec);
+            }
+        }
+
         Page<WorkShift> pageShift = this.workShiftRepository.findAll(spec, pageable);
         ResultPaginationDTO rs = new ResultPaginationDTO();
         ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
@@ -234,6 +301,14 @@ public class WorkShiftService {
     }
 
     public List<User> fetchEmployeesByCompany(Long companyId) {
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                companyId = currentUser.getCompany().getId();
+            }
+        }
+
         if (companyId == null) {
             return this.userRepository.findAll();
         }

@@ -100,6 +100,16 @@ public class CompanyService {
     }
 
     public Company handleUpdateCompany(Company resCompany){
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                if (!currentUser.getCompany().getId().equals(resCompany.getId())) {
+                    throw new RuntimeException("Bạn không có quyền chỉnh sửa thông tin của công ty khác");
+                }
+            }
+        }
+
         Optional<Company> companyOptional = companyRepository.findById(resCompany.getId());
         if(companyOptional.isPresent()){
             Company res = companyOptional.get();
@@ -115,6 +125,16 @@ public class CompanyService {
 
     @Transactional
     public void handleDeleteCompany(Long id){
+        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
+            if (currentUser != null && currentUser.getCompany() != null) {
+                if (!currentUser.getCompany().getId().equals(id)) {
+                    throw new RuntimeException("Bạn không có quyền xóa công ty khác");
+                }
+            }
+        }
+
         Optional<Company> companyOptional = companyRepository.findById(id);
         if(companyOptional.isPresent()){
             Company com = companyOptional.get();
