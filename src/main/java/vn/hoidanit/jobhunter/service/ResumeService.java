@@ -48,27 +48,26 @@ public class ResumeService {
     private final JobRepository jobRepository;
     private final NotificationService notificationService;
 
-    @Autowired
-    @Lazy
-    private EmailService emailService;
-
-    @Autowired
-    @Lazy
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private RoleRepository roleRepository;
+    private final EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
 
     public ResumeService(SimpMessagingTemplate simpMessagingTemplate,
                          ResumeRepository resumeRepository,
                          UserRepository userRepository,
                          JobRepository jobRepository,
-                         @Lazy NotificationService notificationService) {
+                         @Lazy NotificationService notificationService,
+                         @Lazy EmailService emailService,
+                         @Lazy PasswordEncoder passwordEncoder,
+                         RoleRepository roleRepository) {
         this.simpMessagingTemplate = simpMessagingTemplate;
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
         this.notificationService = notificationService;
+        this.emailService = emailService;
+        this.passwordEncoder = passwordEncoder;
+        this.roleRepository = roleRepository;
     }
 
     public boolean checkResumeExistByUserAndJob(Resume resume) {
@@ -207,9 +206,10 @@ public class ResumeService {
 
         // 5. Gửi email xác nhận nộp đơn và thông tin tài khoản cho ứng viên
         try {
-            if (emailService != null) {
+            if (this.emailService != null) {
                 String companyName = job.getCompany() != null ? job.getCompany().getName() : "Tiệm Bánh";
-                emailService.sendQuickApplyConfirmationEmail(
+                System.out.println(">>> [QUICK APPLY] Đang gọi gửi email cho: " + email + ", isNewAccount=" + isNewAccount);
+                this.emailService.sendQuickApplyConfirmationEmail(
                         email,
                         user.getName(),
                         companyName,
@@ -217,9 +217,12 @@ public class ResumeService {
                         isNewAccount,
                         temporaryPassword
                 );
+            } else {
+                System.err.println(">>> [QUICK APPLY ERROR] emailService is null!");
             }
         } catch (Exception ex) {
             System.err.println(">>> [EMAIL QUICK APPLY ERROR] " + ex.getMessage());
+            ex.printStackTrace();
         }
 
         ResCreateResumeDTO res = new ResCreateResumeDTO();

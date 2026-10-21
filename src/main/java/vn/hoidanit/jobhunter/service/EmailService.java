@@ -76,16 +76,19 @@ public class EmailService {
     }
 
     public void sendEmailSync(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
+        System.out.println(">>> [EMAIL SYNC] Chuẩn bị gửi email tới: " + to + " | Tiêu đề: " + subject);
         MimeMessage mimeMessage = this.javaMailSender.createMimeMessage();
         try {
             MimeMessageHelper message = new MimeMessageHelper(mimeMessage, isMultipart, StandardCharsets.UTF_8.name());
-            message.setFrom("quocthangngo2006@gmail.com");
+            message.setFrom("quocthangngo2006@gmail.com", "BakeJobs");
             message.setTo(to);
             message.setSubject(subject);
             message.setText(content, isHtml);
             this.javaMailSender.send(mimeMessage);
-        } catch (MailException | MessagingException e) {
-            System.out.println("ERROR SEND EMAIL: " + e);
+            System.out.println(">>> [EMAIL SYNC SUCCESS] Đã gửi email thành công tới: " + to);
+        } catch (Exception e) {
+            System.err.println(">>> [EMAIL SYNC ERROR] Gửi email thất bại tới: " + to + " | Lỗi: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -233,6 +236,7 @@ public class EmailService {
     /**
      * Gửi email xác nhận nộp hồ sơ ứng tuyển nhanh (từ link rải) kèm thông tin tài khoản nếu mới tạo
      */
+    @Async
     public void sendQuickApplyConfirmationEmail(
             String toEmail,
             String candidateName,
@@ -241,6 +245,7 @@ public class EmailService {
             boolean isNewAccount,
             String temporaryPassword
     ) {
+        System.out.println(">>> [EMAIL QUICK APPLY] Bắt đầu xử lý gửi email cho: " + toEmail + ", isNewAccount=" + isNewAccount);
         String subject = "【BakeJobs】Xác nhận hồ sơ ứng tuyển vị trí " + jobTitle + " - " + companyName;
 
         String accountInfoHtml = "";
