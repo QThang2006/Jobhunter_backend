@@ -72,6 +72,7 @@ public class AuthController {
                 user.getName(),
                 user.getRole()
         );
+        userLogin.setPhone(user.getPhone());
         res.setUser(userLogin);
 
         String access_token = securityUtil.createAccessToken(authentication.getName(),res);
@@ -109,6 +110,7 @@ public class AuthController {
             userLogin.setId(currentUserDB.getId());
             userLogin.setName(currentUserDB.getName());
             userLogin.setEmail(currentUserDB.getEmail());
+            userLogin.setPhone(currentUserDB.getPhone());
             if (role != null && role.isActive()) {
                 userLogin.setRole(currentUserDB.getRole());
             } else {
@@ -144,6 +146,7 @@ public class AuthController {
                 user.getName(),
                 user.getRole()
         );
+        userLogin.setPhone(user.getPhone());
         res.setUser(userLogin);
 
         String access_token = securityUtil.createAccessToken(email,res);

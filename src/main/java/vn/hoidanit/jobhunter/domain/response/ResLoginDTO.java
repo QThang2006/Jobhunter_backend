@@ -21,6 +21,14 @@ public class ResLoginDTO {
         private String email;
         private String name;
         private Role role;
+        private String phone;
+
+        public UserLogin(long id, String email, String name, Role role) {
+            this.id = id;
+            this.email = email;
+            this.name = name;
+            this.role = role;
+        }
     }
 
     @Getter

@@ -94,14 +94,46 @@ public class ResumeService {
     }
 
     public ResCreateResumeDTO create(Resume resume) {
+        if (resume.getUser() != null && resume.getPhone() != null && !resume.getPhone().trim().isEmpty()) {
+            Optional<User> uOpt = this.userRepository.findById(resume.getUser().getId());
+            if (uOpt.isPresent()) {
+                User u = uOpt.get();
+                if (u.getPhone() == null || u.getPhone().isEmpty()) {
+                    u.setPhone(resume.getPhone().trim());
+                    this.userRepository.save(u);
+                }
+            }
+        }
+
         Resume resume1 = resumeRepository.save(resume);
-        // Broadcast cho admin (reload báº£ng tá»•ng)
+        // Broadcast cho admin (reload bảng tổng)
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
-        // Broadcast riÃªng cho user sá»Ÿ há»¯u resume (reload "CV cá»§a tÃ´i")
+        // Broadcast riêng cho user sở hữu resume (reload "CV của tôi")
         if (resume1.getUser() != null) {
             this.simpMessagingTemplate.convertAndSend(
                     "/topic/resumes/" + resume1.getUser().getId(), "REFRESH"
             );
+        }
+
+        try {
+            if (emailService != null && resume1.getJob() != null) {
+                Optional<Job> jOpt = this.jobRepository.findById(resume1.getJob().getId());
+                if (jOpt.isPresent()) {
+                    Job j = jOpt.get();
+                    String companyName = j.getCompany() != null ? j.getCompany().getName() : "Tiệm Bánh";
+                    String candidateName = resume1.getUser() != null ? resume1.getUser().getName() : "Ứng viên";
+                    emailService.sendQuickApplyConfirmationEmail(
+                            resume1.getEmail(),
+                            candidateName,
+                            companyName,
+                            j.getName(),
+                            false,
+                            null
+                    );
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println(">>> [EMAIL APPLY ERROR] " + ex.getMessage());
         }
 
         ResCreateResumeDTO res = new ResCreateResumeDTO();
