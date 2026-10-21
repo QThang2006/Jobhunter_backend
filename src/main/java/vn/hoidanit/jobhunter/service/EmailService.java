@@ -163,6 +163,45 @@ public class EmailService {
         this.sendEmailSync(toEmail, subject, htmlContent, false, true);
     }
 
+    @Async
+    public void sendApprovalEmail(
+            String toEmail,
+            String candidateName,
+            String companyName,
+            String jobName
+    ) {
+        String subject = "🎉【BakeJobs】Chúc mừng bạn đã trúng tuyển vị trí " + jobName + " - " + companyName;
+
+        String htmlContent = "<!DOCTYPE html>"
+                + "<html>"
+                + "<head><meta charset='utf-8'></head>"
+                + "<body style='font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 24px; color: #111827;'>"
+                + "  <div style='max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 32px 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);'>"
+                + "    <div style='text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f3f4f6;'>"
+                + "      <div style='font-size: 32px;'>🎉🥖</div>"
+                + "      <h2 style='font-size: 22px; font-weight: 700; color: #16a34a; margin: 8px 0 4px;'>Chúc Mừng Bạn Đã Trúng Tuyển!</h2>"
+                + "      <p style='font-size: 14px; color: #6b7280; margin: 0;'>Đơn vị tiếp nhận: <strong>" + companyName + "</strong></p>"
+                + "    </div>"
+                + "    <div style='padding-top: 24px; font-size: 15px; line-height: 1.6; color: #374151;'>"
+                + "      <p>Xin chào <strong>" + candidateName + "</strong>,</p>"
+                + "      <p>Đại diện <strong>" + companyName + "</strong>, chúng tôi rất vui mừng thông báo rằng bạn đã hoàn thành xuất sắc đợt phỏng vấn và chính thức <strong>trúng tuyển</strong> vào vị trí <strong>" + jobName + "</strong> tại tiệm bánh của chúng tôi!</p>"
+                + "      <div style='background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin: 20px 0;'>"
+                + "        <p style='margin: 0 0 6px 0; color: #166534; font-weight: 600;'>🥖 Chào mừng bạn gia nhập tiệm bánh " + companyName + "!</p>"
+                + "        <p style='margin: 0; color: #15803d; font-size: 13.5px;'>Tài khoản của bạn trên hệ thống BakeJobs đã được liên kết với chi nhánh tiệm bánh. Bạn có thể đăng nhập để theo dõi phân ca làm việc từ quản lý.</p>"
+                + "      </div>"
+                + "      <p>Bộ phận nhân sự / Quản lý của tiệm sẽ sớm liên hệ trực tiếp với bạn qua Số điện thoại / Email để hướng dẫn thủ tục nhận việc và sắp xếp ca làm việc đầu tiên.</p>"
+                + "      <p style='margin-top: 24px;'>Chúc bạn sẽ có những trải nghiệm làm việc tràn đầy nhiệt huyết và cùng tiệm bánh tạo nên những mẻ bánh thơm ngon nhất!<br><br>Trân trọng,<br><strong>Bộ phận Tuyển dụng • " + companyName + "</strong></p>"
+                + "    </div>"
+                + "    <div style='text-align: center; font-size: 12px; color: #9ca3af; margin-top: 28px; border-top: 1px solid #f3f4f6; padding-top: 16px;'>"
+                + "      © " + java.time.Year.now().getValue() + " " + companyName + " • Nền tảng kết nối việc làm BakeJobs"
+                + "    </div>"
+                + "  </div>"
+                + "</body>"
+                + "</html>";
+
+        this.sendEmailSync(toEmail, subject, htmlContent, false, true);
+    }
+
     /**
      * Kích hoạt Workflow n8n để tạo lịch Google Meet & tự động gửi mail cho ứng viên
      */

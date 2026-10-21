@@ -241,13 +241,41 @@ public class ResumeService {
     }
 
     public ResUpdateResumeDTO update(Resume resume) {
-        // Tự động gán nhân viên vào tiệm bánh khi hồ sơ được duyệt (APPROVED)
-        if (resume.getStatus() == ResumeStateEnum.APPROVED && resume.getUser() != null && resume.getJob() != null) {
-            User user = resume.getUser();
-            if (resume.getJob().getCompany() != null) {
-                user.setCompany(resume.getJob().getCompany());
-                this.userRepository.save(user);
-                this.simpMessagingTemplate.convertAndSend("/topic/users/" + user.getId(), "REFRESH");
+        // Khi duyệt nhận việc chính thức (APPROVED):
+        // 1. Tự động gán nhân viên vào tiệm bánh
+        // 2. Xóa lịch phỏng vấn khỏi lịch tuần (vì đã phỏng vấn xong và trúng tuyển)
+        // 3. Tự động gửi email chúc mừng trúng tuyển cho ứng viên
+        if (resume.getStatus() == ResumeStateEnum.APPROVED) {
+            resume.setInterviewDate(null);
+            resume.setInterviewTime(null);
+            resume.setMeetLink(null);
+            resume.setInterviewType(null);
+            resume.setNote(null);
+
+            if (resume.getUser() != null && resume.getJob() != null) {
+                User user = resume.getUser();
+                if (resume.getJob().getCompany() != null) {
+                    user.setCompany(resume.getJob().getCompany());
+                    this.userRepository.save(user);
+                    this.simpMessagingTemplate.convertAndSend("/topic/users/" + user.getId(), "REFRESH");
+                }
+            }
+
+            try {
+                String toEmail = resume.getEmail();
+                String candidateName = resume.getUser() != null ? resume.getUser().getName() : "Ứng viên";
+                String companyName = resume.getJob() != null && resume.getJob().getCompany() != null
+                        ? resume.getJob().getCompany().getName()
+                        : "Tiệm Bánh";
+                String jobName = resume.getJob() != null ? resume.getJob().getName() : "Vị trí làm việc";
+
+                if (toEmail != null && !toEmail.isBlank() && this.emailService != null) {
+                    System.out.println(">>> [APPROVED EMAIL] Bắt đầu gửi email chúc mừng trúng tuyển tới: " + toEmail);
+                    this.emailService.sendApprovalEmail(toEmail, candidateName, companyName, jobName);
+                }
+            } catch (Exception ex) {
+                System.err.println(">>> [APPROVED EMAIL ERROR] Lỗi khi gửi email chúc mừng: " + ex.getMessage());
+                ex.printStackTrace();
             }
         }
 
