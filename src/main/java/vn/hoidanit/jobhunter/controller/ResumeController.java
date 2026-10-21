@@ -14,6 +14,7 @@ import vn.hoidanit.jobhunter.domain.Company;
 import vn.hoidanit.jobhunter.domain.Job;
 import vn.hoidanit.jobhunter.domain.Resume;
 import vn.hoidanit.jobhunter.domain.User;
+import vn.hoidanit.jobhunter.domain.request.ReqQuickApplyDTO;
 import vn.hoidanit.jobhunter.domain.response.resume.ResCreateResumeDTO;
 import vn.hoidanit.jobhunter.domain.response.resume.ResFetchResumeDTO;
 import vn.hoidanit.jobhunter.domain.response.resume.ResUpdateResumeDTO;
@@ -75,6 +76,12 @@ public class ResumeController {
 
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resumeService.create(resume));
+    }
+
+    @PostMapping("/resumes/quick-apply")
+    @ApiMessage("Ứng tuyển nhanh qua link rải")
+    public ResponseEntity<ResCreateResumeDTO> quickApply(@Valid @RequestBody ReqQuickApplyDTO req) throws IdInvalidException {
+        return ResponseEntity.status(HttpStatus.CREATED).body(this.resumeService.quickApply(req));
     }
 
     @PutMapping("/resumes")

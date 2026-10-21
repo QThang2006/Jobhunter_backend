@@ -76,7 +76,9 @@ public class SecurityConfiguration {
                 "/api/v1/auth/login", "/api/v1/auth/refresh","/api/v1/auth/register",
                 "/storage/**",
                 "/api/v1/auth/forgot-password","/api/v1/auth/verify-otp","/api/v1/auth/reset-password",
-                "/oauth2/**", "/login/oauth2/**"  // Google OAuth2 endpoints
+                "/oauth2/**", "/login/oauth2/**",  // Google OAuth2 endpoints
+                "/api/v1/resumes/quick-apply",
+                "/api/v1/files"
         };
         http
                 .csrf(c -> c.disable())

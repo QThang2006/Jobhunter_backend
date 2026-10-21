@@ -229,4 +229,53 @@ public class EmailService {
         }
         return null;
     }
+
+    /**
+     * Gửi email xác nhận nộp hồ sơ ứng tuyển nhanh (từ link rải) kèm thông tin tài khoản nếu mới tạo
+     */
+    public void sendQuickApplyConfirmationEmail(
+            String toEmail,
+            String candidateName,
+            String companyName,
+            String jobTitle,
+            boolean isNewAccount,
+            String temporaryPassword
+    ) {
+        String subject = "【BakeJobs】Xác nhận hồ sơ ứng tuyển vị trí " + jobTitle + " - " + companyName;
+
+        String accountInfoHtml = "";
+        if (isNewAccount && temporaryPassword != null) {
+            accountInfoHtml = "<div style='background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin: 20px 0;'>"
+                    + "<p style='margin: 0 0 8px 0; font-weight: 600; color: #1f2937;'>🔑 Tài khoản theo dõi tiến độ ứng tuyển:</p>"
+                    + "<p style='margin: 4px 0; color: #4b5563;'>• Tên đăng nhập: <strong>" + toEmail + "</strong></p>"
+                    + "<p style='margin: 4px 0; color: #4b5563;'>• Mật khẩu tạm thời: <strong style='color: #2563eb;'>" + temporaryPassword + "</strong></p>"
+                    + "<p style='margin: 8px 0 0 0; font-size: 13px; color: #6b7280;'>* Bạn có thể đăng nhập vào BakeJobs để cập nhật thông tin và theo dõi lịch phỏng vấn / ca làm việc.</p>"
+                    + "</div>";
+        }
+
+        String htmlContent = "<!DOCTYPE html>"
+                + "<html>"
+                + "<head><meta charset='UTF-8'></head>"
+                + "<body style='font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f9fafb;'>"
+                + "  <div style='max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);'>"
+                + "    <div style='text-align: center; border-bottom: 2px solid #f3f4f6; padding-bottom: 20px; margin-bottom: 24px;'>"
+                + "      <h2 style='color: #1677ff; margin: 0; font-size: 22px;'>🥖 BakeJobs • Kết Nối Việc Làm Bánh</h2>"
+                + "      <p style='color: #6b7280; font-size: 14px; margin-top: 6px;'>Xác nhận hồ sơ ứng tuyển thành công</p>"
+                + "    </div>"
+                + "    <div>"
+                + "      <p>Xin chào <strong>" + candidateName + "</strong>,</p>"
+                + "      <p>Hồ sơ ứng tuyển của bạn cho vị trí <strong style='color: #1677ff;'>" + jobTitle + "</strong> tại tiệm bánh <strong style='color: #059669;'>" + companyName + "</strong> đã được tiếp nhận thành công!</p>"
+                + accountInfoHtml
+                + "      <p>Bộ phận nhân sự của <strong>" + companyName + "</strong> sẽ sớm xem xét hồ sơ và liên hệ phỏng vấn qua Email / Số điện thoại của bạn.</p>"
+                + "      <p style='margin-top: 24px;'>Chúc bạn một ngày làm việc tràn đầy năng lượng!<br>Trân trọng,<br><strong>Đội ngũ BakeJobs & " + companyName + "</strong></p>"
+                + "    </div>"
+                + "    <div style='text-align: center; font-size: 12px; color: #9ca3af; margin-top: 28px; border-top: 1px solid #f3f4f6; padding-top: 16px;'>"
+                + "      © " + java.time.Year.now().getValue() + " " + companyName + " • Nền tảng tuyển dụng ngành bánh"
+                + "    </div>"
+                + "  </div>"
+                + "</body>"
+                + "</html>";
+
+        this.sendEmailSync(toEmail, subject, htmlContent, false, true);
+    }
 }

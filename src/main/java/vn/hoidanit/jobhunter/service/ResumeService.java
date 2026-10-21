@@ -14,16 +14,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hoidanit.jobhunter.domain.Job;
 import vn.hoidanit.jobhunter.domain.Resume;
+import vn.hoidanit.jobhunter.domain.Role;
 import vn.hoidanit.jobhunter.domain.User;
+import vn.hoidanit.jobhunter.domain.request.ReqQuickApplyDTO;
 import vn.hoidanit.jobhunter.domain.response.*;
 import vn.hoidanit.jobhunter.domain.response.resume.ResCreateResumeDTO;
 import vn.hoidanit.jobhunter.domain.response.resume.ResFetchResumeDTO;
 import vn.hoidanit.jobhunter.domain.response.resume.ResUpdateResumeDTO;
 import vn.hoidanit.jobhunter.repository.JobRepository;
 import vn.hoidanit.jobhunter.repository.ResumeRepository;
+import vn.hoidanit.jobhunter.repository.RoleRepository;
 import vn.hoidanit.jobhunter.repository.UserRepository;
 import vn.hoidanit.jobhunter.util.SecurityUtil;
 import vn.hoidanit.jobhunter.util.constant.ResumeStateEnum;
+import vn.hoidanit.jobhunter.util.error.IdInvalidException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +51,13 @@ public class ResumeService {
     @Autowired
     @Lazy
     private EmailService emailService;
+
+    @Autowired
+    @Lazy
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RoleRepository roleRepository;
 
     public ResumeService(SimpMessagingTemplate simpMessagingTemplate,
                          ResumeRepository resumeRepository,
@@ -99,6 +111,87 @@ public class ResumeService {
 
         return res;
 
+    }
+
+    public ResCreateResumeDTO quickApply(ReqQuickApplyDTO req) throws IdInvalidException {
+        // 1. Kiểm tra Job
+        Optional<Job> jobOpt = this.jobRepository.findById(req.getJobId());
+        if (jobOpt.isEmpty()) {
+            throw new IdInvalidException("Vị trí tuyển dụng với ID = " + req.getJobId() + " không tồn tại");
+        }
+        Job job = jobOpt.get();
+        if (!job.isActive()) {
+            throw new IdInvalidException("Vị trí tuyển dụng này hiện đang tạm ngưng nhận hồ sơ");
+        }
+
+        // 2. Tìm hoặc tự động tạo User ngầm
+        String email = req.getEmail().trim().toLowerCase();
+        User user = this.userRepository.findByEmail(email);
+        boolean isNewAccount = false;
+        String temporaryPassword = null;
+
+        if (user == null) {
+            isNewAccount = true;
+            user = new User();
+            user.setEmail(email);
+            user.setName(req.getName().trim());
+            temporaryPassword = "BakeJob@" + (1000 + (int)(Math.random() * 9000));
+            user.setPassword(this.passwordEncoder.encode(temporaryPassword));
+
+            Role userRole = this.roleRepository.findByName("USER");
+            if (userRole != null) {
+                user.setRole(userRole);
+            }
+            user = this.userRepository.save(user);
+        }
+
+        // 3. Tạo Resume
+        Resume resume = new Resume();
+        resume.setEmail(email);
+        resume.setUrl(req.getUrlCV());
+        resume.setUser(user);
+        resume.setJob(job);
+        resume.setStatus(ResumeStateEnum.PENDING);
+
+        String note = "[ỨNG TUYỂN QUA LINK RẢI]";
+        if (req.getPhone() != null && !req.getPhone().trim().isEmpty()) {
+            note += " SĐT: " + req.getPhone().trim();
+        }
+        if (req.getNote() != null && !req.getNote().trim().isEmpty()) {
+            note += " | " + req.getNote().trim();
+        }
+        resume.setNote(note);
+
+        Resume savedResume = this.resumeRepository.save(resume);
+
+        // 4. Real-time broadcast
+        this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
+        if (user.getId() != null) {
+            this.simpMessagingTemplate.convertAndSend("/topic/resumes/" + user.getId(), "REFRESH");
+        }
+
+        // 5. Gửi email xác nhận nộp đơn và thông tin tài khoản cho ứng viên
+        try {
+            if (emailService != null) {
+                String companyName = job.getCompany() != null ? job.getCompany().getName() : "Tiệm Bánh";
+                emailService.sendQuickApplyConfirmationEmail(
+                        email,
+                        user.getName(),
+                        companyName,
+                        job.getName(),
+                        isNewAccount,
+                        temporaryPassword
+                );
+            }
+        } catch (Exception ex) {
+            System.err.println(">>> [EMAIL QUICK APPLY ERROR] " + ex.getMessage());
+        }
+
+        ResCreateResumeDTO res = new ResCreateResumeDTO();
+        res.setId(savedResume.getId());
+        res.setCreatedAt(savedResume.getCreatedAt());
+        res.setCreatedBy(savedResume.getCreatedBy());
+        return res;
     }
 
     public Optional<Resume> fetchById(long id) {
