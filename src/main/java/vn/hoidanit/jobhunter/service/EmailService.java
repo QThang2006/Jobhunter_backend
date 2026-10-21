@@ -147,6 +147,30 @@ public class EmailService {
             payload.put("note", note != null ? note : "Phỏng vấn trực tuyến qua Google Meet");
             payload.put("durationMinutes", 45);
 
+            // Tính sẵn startDateTime và endDateTime chuẩn ISO 8601 (+07:00) cho Google Calendar
+            try {
+                String[] dParts = interviewDate.contains("/") ? interviewDate.split("/") : interviewDate.split("-");
+                String day = String.format("%02d", Integer.parseInt(dParts[0].trim()));
+                String month = String.format("%02d", Integer.parseInt(dParts[1].trim()));
+                String year = dParts[2].trim();
+                String[] tParts = interviewTime.split(":");
+                int hour = Integer.parseInt(tParts[0].trim());
+                int minute = Integer.parseInt(tParts[1].trim());
+
+                java.time.LocalDate localDate = java.time.LocalDate.of(Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day));
+                java.time.LocalTime localTime = java.time.LocalTime.of(hour, minute);
+                java.time.ZonedDateTime startZoned = java.time.ZonedDateTime.of(localDate, localTime, java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+                java.time.ZonedDateTime endZoned = startZoned.plusMinutes(45);
+
+                String startIso = startZoned.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                String endIso = endZoned.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+                payload.put("startDateTime", startIso);
+                payload.put("endDateTime", endIso);
+            } catch (Exception ex) {
+                System.err.println(">>> [DATE PARSE WARN] Khong the parse ISO date: " + ex.getMessage());
+            }
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
