@@ -43,6 +43,10 @@ public class ResumeService {
     private final JobRepository jobRepository;
     private final NotificationService notificationService;
 
+    @Autowired
+    @Lazy
+    private EmailService emailService;
+
     public ResumeService(SimpMessagingTemplate simpMessagingTemplate,
                          ResumeRepository resumeRepository,
                          UserRepository userRepository,
@@ -116,11 +120,35 @@ public class ResumeService {
             }
         }
 
+        // Khi từ chối hồ sơ (REJECTED): Xóa lịch phỏng vấn khỏi lịch tuần & gửi email từ chối cho ứng viên
+        if (resume.getStatus() == ResumeStateEnum.REJECTED) {
+            resume.setInterviewDate(null);
+            resume.setInterviewTime(null);
+            resume.setMeetLink(null);
+            resume.setInterviewType(null);
+            resume.setNote(null);
+
+            try {
+                String toEmail = resume.getEmail();
+                String candidateName = resume.getUser() != null ? resume.getUser().getName() : "Ứng viên";
+                String companyName = resume.getJob() != null && resume.getJob().getCompany() != null
+                        ? resume.getJob().getCompany().getName()
+                        : "Tiệm Bánh";
+                String jobName = resume.getJob() != null ? resume.getJob().getName() : "Vị trí ứng tuyển";
+
+                if (toEmail != null && !toEmail.isBlank() && emailService != null) {
+                    emailService.sendRejectionEmail(toEmail, candidateName, companyName, jobName);
+                }
+            } catch (Exception ex) {
+                System.err.println(">>> [REJECTION EMAIL ERROR] Lỗi khi gửi email từ chối: " + ex.getMessage());
+            }
+        }
+
         Resume resume1 = resumeRepository.save(resume);
         ResUpdateResumeDTO res = new ResUpdateResumeDTO();
         res.setUpdateAt(resume1.getUpdatedAt());
         res.setUpdateBy(resume1.getUpdatedBy());
-        // Broadcast cho admin (reload báº£ng tá»•ng)
+        // Broadcast cho admin
         this.simpMessagingTemplate.convertAndSend("/topic/resumes", "REFRESH");
         // Broadcast riÃªng cho user sá»Ÿ há»¯u resume (reload "CV cá»§a tÃ´i")
         if (resume1.getUser() != null) {

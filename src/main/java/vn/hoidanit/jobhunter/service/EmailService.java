@@ -122,6 +122,44 @@ public class EmailService {
         this.sendEmailSync(toEmail, subject, content, false, true);
     }
 
+    @Async
+    public void sendRejectionEmail(
+            String toEmail,
+            String candidateName,
+            String companyName,
+            String jobName
+    ) {
+        String subject = "🥐 Thông báo kết quả ứng tuyển vị trí " + jobName + " - " + companyName;
+
+        String htmlContent = "<!DOCTYPE html>"
+                + "<html>"
+                + "<head><meta charset='utf-8'></head>"
+                + "<body style='font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 24px; color: #111827;'>"
+                + "  <div style='max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; padding: 32px 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.04);'>"
+                + "    <div style='text-align: center; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6;'>"
+                + "      <div style='font-size: 28px;'>🥐</div>"
+                + "      <h2 style='font-size: 20px; font-weight: 700; color: #111827; margin: 8px 0 4px;'>Thông Báo Kết Quả Ứng Tuyển</h2>"
+                + "      <p style='font-size: 14px; color: #6b7280; margin: 0;'>Đơn vị tuyển dụng: <strong>" + companyName + "</strong></p>"
+                + "    </div>"
+                + "    <div style='padding-top: 20px; font-size: 14.5px; line-height: 1.6; color: #374151;'>"
+                + "      <p>Xin chào <strong>" + candidateName + "</strong>,</p>"
+                + "      <p>Lời đầu tiên, <strong>" + companyName + "</strong> xin gửi lời cảm ơn chân thành đến bạn vì đã dành thời gian và sự quan tâm đến vị trí <strong>" + jobName + "</strong> tại tiệm bánh của chúng tôi.</p>"
+                + "      <p>Sau khi xem xét kỹ lưỡng hồ sơ và đối chiếu với yêu cầu hiện tại, chúng tôi rất tiếc phải thông báo rằng hiện tại chưa thể đồng hành cùng bạn trong đợt tuyển dụng lần này.</p>"
+                + "      <p>Quyết định này hoàn toàn không phản ánh năng lực hay tiềm năng của bạn, mà chỉ dựa trên sự phù hợp với các tiêu chí đặc thù của tiệm bánh ở thời điểm hiện tại.</p>"
+                + "      <p>Chúng tôi đã lưu giữ thông tin của bạn trong hệ thống và sẽ chủ động liên hệ lại khi có cơ hội việc làm mới phù hợp hơn.</p>"
+                + "      <p>Chúc bạn luôn tràn đầy nhiệt huyết và sớm tìm được công việc như ý trong ngành bánh!</p>"
+                + "      <p style='margin-top: 24px;'>Trân trọng,<br><strong>Bộ phận Tuyển dụng • " + companyName + "</strong></p>"
+                + "    </div>"
+                + "    <div style='text-align: center; font-size: 12px; color: #9ca3af; margin-top: 28px; border-top: 1px solid #f3f4f6; padding-top: 16px;'>"
+                + "      © " + java.time.Year.now().getValue() + " " + companyName + " • Nền tảng kết nối việc làm BakeJobs"
+                + "    </div>"
+                + "  </div>"
+                + "</body>"
+                + "</html>";
+
+        this.sendEmailSync(toEmail, subject, htmlContent, false, true);
+    }
+
     /**
      * Kích hoạt Workflow n8n để tạo lịch Google Meet & tự động gửi mail cho ứng viên
      */
