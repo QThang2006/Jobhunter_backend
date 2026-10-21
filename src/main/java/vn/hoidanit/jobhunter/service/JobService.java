@@ -8,7 +8,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.hoidanit.jobhunter.domain.*;
-import vn.hoidanit.jobhunter.domain.chatGPT.JobSearchCriteria;
 import vn.hoidanit.jobhunter.domain.response.job.ResCreateJobDTO;
 import vn.hoidanit.jobhunter.domain.response.job.ResUpdateJobDTO;
 import vn.hoidanit.jobhunter.domain.response.ResultPaginationDTO;
@@ -265,89 +264,6 @@ public class JobService {
         rs.setResult(pageJob.getContent());
 
         return rs;
-    }
-
-    public static Specification<Job> filterJobs(JobSearchCriteria criteria) {
-        return (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            query.distinct(true);
-
-            // 0. LUÔN LỌC CÔNG VIỆC ĐANG HOẠT ĐỘNG
-            predicates.add(cb.isTrue(root.get("active")));
-
-            // 1. KỸ NĂNG (Lọc CHẶT CHẼ trong bảng liên kết job_skill - sử dụng Subquery)
-            if (criteria.getSkills() != null && !criteria.getSkills().isEmpty()) {
-                for (String s : criteria.getSkills()) {
-                    // Tạo một subquery để tìm ID của những Job có chứa skill này
-                    Subquery<Long> subquery = query.subquery(Long.class);
-                    Root<Job> subRoot = subquery.from(Job.class);
-                    Join<Object, Object> subSkillJoin = subRoot.join("skills");
-
-                    subquery.select(subRoot.get("id"))
-                            .where(cb.like(cb.lower(subSkillJoin.get("name")), "%" + s.toLowerCase() + "%"));
-
-                    // Chỉ lấy những Job có ID nằm trong danh sách của subquery
-                    predicates.add(root.get("id").in(subquery));
-                }
-            }
-
-            // 2. ĐỊA ĐIỂM (Hỗ trợ tìm kiếm theo vùng miền)
-            if (criteria.getLocation() != null && !criteria.getLocation().isEmpty()) {
-                predicates.add(cb.like(cb.lower(root.get("location")), "%" + criteria.getLocation().toLowerCase() + "%"));
-            }
-
-            // 3. LƯƠNG (Chỉ lọc nếu user có con số cụ thể)
-            if (criteria.getSalaryMin() != null && criteria.getSalaryMin() > 0) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("salary"), criteria.getSalaryMin()));
-            }
-
-            // 4. LEVEL (Enum Mapping)
-            if (criteria.getExperienceLevel() != null) {
-                predicates.add(cb.equal(root.get("level").as(String.class), criteria.getExperienceLevel().toUpperCase()));
-            }
-
-            // 5. CÔNG TY (Join mạnh mẽ)
-            if (criteria.getCompanyName() != null && !criteria.getCompanyName().isEmpty()) {
-                Join<Object, Object> companyJoin = root.join("company", JoinType.LEFT);
-                predicates.add(cb.like(cb.lower(companyJoin.get("name")), "%" + criteria.getCompanyName().toLowerCase() + "%"));
-            }
-
-            // 6. TỪ KHÓA TRONG MÔ TẢ (Phúc lợi, yêu cầu thêm)
-            if (criteria.getDescriptionKeywords() != null && !criteria.getDescriptionKeywords().isEmpty()) {
-                for (String keyword : criteria.getDescriptionKeywords()) {
-                    predicates.add(cb.like(cb.lower(root.get("description")), "%" + keyword.toLowerCase() + "%"));
-                }
-            }
-
-            // 8. THỜI GIAN TUYỂN DỤNG (startDate & endDate)
-            if (criteria.getJobEndDateBefore() != null) {
-                try {
-                    // Job phải bắt đầu TRƯỚC KHI mốc kết thúc của user tới
-                    Instant criteriaEnd = LocalDate.parse(criteria.getJobEndDateBefore()).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                    predicates.add(cb.lessThanOrEqualTo(root.get("startDate"), criteriaEnd));
-                } catch (Exception e) {}
-            }
-            if (criteria.getJobStartDateAfter() != null) {
-                try {
-                    // Job phải kết thúc SAU KHI mốc bắt đầu của user bắt đầu
-                    Instant criteriaStart = LocalDate.parse(criteria.getJobStartDateAfter()).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("endDate"), criteriaStart));
-                } catch (Exception e) {}
-            }
-
-            // 9. SẮP XẾP (Sorting Logic)
-            if (criteria.getSortBy() != null) {
-                if (criteria.getSortBy().equalsIgnoreCase("salaryDesc")) {
-                    query.orderBy(cb.desc(root.get("salary")));
-                } else if (criteria.getSortBy().equalsIgnoreCase("newest")) {
-                    query.orderBy(cb.desc(root.get("createdAt")));
-                }
-            } else {
-                query.orderBy(cb.desc(root.get("createdAt")));
-            }
-
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
     }
 
 }

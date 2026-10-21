@@ -6,7 +6,7 @@
 [![Security](https://img.shields.io/badge/Spring%20Security-JWT%20%2B%20OAuth2-red.svg)](https://spring.io/projects/spring-security)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](#)
 
-Hệ thống Backend RESTful API cho nền tảng tuyển dụng công việc **JobHunter**, được xây dựng bằng **Spring Boot 3.2**, **Java 17**, tích hợp **PostgreSQL (Supabase)**, hệ thống bảo mật **JWT + OAuth2 (Google Login)**, phân quyền động **RBAC (Role-Based Access Control)**, cùng tính năng **AI Chat Assistant (Groq Cloud)** và gửi mail thông báo tự động.
+Hệ thống Backend RESTful API cho nền tảng tuyển dụng công việc **JobHunter**, được xây dựng bằng **Spring Boot 3.2**, **Java 17**, tích hợp **PostgreSQL (Supabase)**, hệ thống bảo mật **JWT + OAuth2 (Google Login)**, phân quyền động **RBAC (Role-Based Access Control)**, và gửi mail thông báo tự động.
 
 ---
 
@@ -28,7 +28,7 @@ Hệ thống Backend RESTful API cho nền tảng tuyển dụng công việc **
 
 **JobHunter Backend** đóng vai trò là API Server cung cấp toàn bộ logic xử lý dữ liệu cho ứng dụng tìm kiếm việc làm & quản lý tuyển dụng. Hệ thống hỗ trợ người tìm việc (Candidate), nhà tuyển dụng (Employer/HR) và quản trị viên (Super Admin) tương tác mượt mà qua giao diện REST API chuẩn hóa.
 
-Dự án được tích hợp các công nghệ hiện đại như **Supabase Storage** quản lý tệp tin CV/hình ảnh, dịch vụ gửi Email thông báo tự động (Brevo SMTP), đăng nhập nhanh bằng **Google OAuth2**, và trợ lý trí tuệ nhân tạo **AI Chatbot** dựa trên nền tảng **Groq AI**.
+Dự án được tích hợp các công nghệ hiện đại như **Supabase Storage** quản lý tệp tin CV/hình ảnh, dịch vụ gửi Email thông báo tự động (Brevo SMTP), và đăng nhập nhanh bằng **Google OAuth2**.
 
 ---
 
@@ -90,10 +90,6 @@ Dự án được tích hợp các công nghệ hiện đại như **Supabase St
 * Upload & Download file bảo mật lên Supabase Storage bucket.
 * Kiểm tra và giới hạn định dạng file upload (`pdf`, `jpg`, `jpeg`, `png`, `doc`, `docx`) với kích thước tối đa 50MB.
 
-### 8. 🤖 Trợ lý AI Tìm việc (Groq AI Chatbot)
-* Tích hợp API **Groq AI** cung cấp giao diện trò chuyện hỏi đáp thông minh.
-* Tư vấn gợi ý việc làm, kỹ năng cần chuẩn bị và định hướng nghề nghiệp cho ứng viên.
-
 ---
 
 ## 📐 Kiến trúc hệ thống & Bảo mật
@@ -109,7 +105,6 @@ graph TD
     Repo -->|PostgreSQL Protocol| SupabaseDB[(PostgreSQL Supabase)]
     Service -->|Upload/Download| SupabaseStorage[Supabase Storage API]
     Service -->|Send Mail/OTP| BrevoMail[Brevo SMTP Server]
-    Service -->|AI Questions| GroqAI[Groq Cloud AI API]
 ```
 
 ---
@@ -128,7 +123,6 @@ src/main/java/vn/hoidanit/jobhunter/
 │   └── WebSocketConfig.java        # Cấu hình STOMP / WebSocket
 ├── controller/                     # REST API Controllers (V1)
 │   ├── AuthController.java         # Auth, Login, Logout, Register, OTP, Reset Pass
-│   ├── ChatController.java         # Groq AI Chat API
 │   ├── CompanyController.java      # CRUD Công ty
 │   ├── FileController.java         # Upload/Download File qua Supabase
 │   ├── JobController.java          # CRUD Việc làm
@@ -138,8 +132,7 @@ src/main/java/vn/hoidanit/jobhunter/
 │   └── UserController.java         # Quản lý Người dùng
 ├── domain/                         # JPA Entities & DTOs
 │   ├── request/                    # Request Body DTOs
-│   ├── response/                   # Response Output DTOs & Wrapper
-│   └── chatGPT/                    # DTOs xử lý AI Chat
+│   └── response/                   # Response Output DTOs & Wrapper
 ├── repository/                     # Spring Data JPA Interfaces
 ├── service/                        # Business Logic implementation
 └── util/                           # Utilities & Custom Annotations
@@ -182,12 +175,11 @@ src/main/java/vn/hoidanit/jobhunter/
 | `GET` | `/api/v1/resumes/{id}` | Lấy chi tiết hồ sơ | RBAC Permission |
 | `GET` | `/api/v1/resumes` | Lấy danh sách hồ sơ ứng tuyển | RBAC Permission |
 
-### 4. Upload File & Trợ lý AI (`/api/v1/files`, `/api/v1/chat`)
+### 4. Upload File (`/api/v1/files`)
 | Method | Endpoint | Mô tả | Quyền truy cập |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/files` | Upload file (CV, Logo, Image) lên Supabase Storage | Authenticated |
 | `GET` | `/api/v1/files` | Download file theo URL | Public |
-| `POST` | `/api/v1/chat` | Trò chuyện & hỏi đáp với Trợ lý AI (Groq AI) | Authenticated |
 
 ---
 
@@ -221,10 +213,6 @@ spring.mail.port=2525
 spring.mail.username=<BREVO_SMTP_USERNAME>
 spring.mail.password=${SPRING_MAIL_PASSWORD}
 
-# Groq AI Configuration
-groq.api.key=${GROQ_API_KEY}
-groq.ai.model=openai/gpt-oss-20b
-
 # Google OAuth2 Credentials
 spring.security.oauth2.client.registration.google.client-id=${GOOGLE_CLIENT_ID}
 spring.security.oauth2.client.registration.google.client-secret=${GOOGLE_CLIENT_SECRET}
@@ -251,7 +239,6 @@ spring.security.oauth2.client.registration.google.scope=email,profile
 2. **Thiết lập biến môi trường** (hoặc cấu hình trực tiếp trong `application.properties`):
    ```bash
    export SPRING_MAIL_PASSWORD="your_brevo_smtp_password"
-   export GROQ_API_KEY="your_groq_api_key"
    export GOOGLE_CLIENT_ID="your_google_client_id"
    export GOOGLE_CLIENT_SECRET="your_google_client_secret"
    ```
