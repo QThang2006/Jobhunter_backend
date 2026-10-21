@@ -35,7 +35,7 @@ public class EmailService {
     @Autowired
     private RestTemplate restTemplate;
 
-    @Value("${n8n.webhook.interview-meet-url:https://thang162006.app.n8n.cloud/webhook/interview-meet}")
+    @Value("${n8n.webhook.interview-meet-url}")
     private String n8nWebhookUrl;
 
     public EmailService(MailSender mailSender, JavaMailSender javaMailSender, SpringTemplateEngine templateEngine, JobRepository jobRepository) {
