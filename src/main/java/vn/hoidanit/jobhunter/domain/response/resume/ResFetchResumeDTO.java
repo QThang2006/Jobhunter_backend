@@ -14,6 +14,8 @@ import java.time.Instant;
 public class ResFetchResumeDTO {
     private long id;
     private String email;
+    private String phone;
+    private String message;
     private String url;
 
     @Enumerated(EnumType.STRING)

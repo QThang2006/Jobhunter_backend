@@ -39,6 +39,8 @@ public class User {
 
     private String address;
 
+    private String phone;
+
     @Column(columnDefinition = "TEXT")
     private String refreshToken;
 

@@ -21,6 +21,11 @@ public class Resume {
     @NotBlank(message = "email ko duoc de trong")
     private String email;
 
+    private String phone;
+
+    @Column(columnDefinition = "TEXT")
+    private String message;
+
     @NotBlank(message = "url ko duoc de trong (upload cv chua thanh cong)")
     @Column(columnDefinition = "TEXT")
     private String url;

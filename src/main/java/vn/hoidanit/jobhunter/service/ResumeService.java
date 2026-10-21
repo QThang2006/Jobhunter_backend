@@ -135,6 +135,9 @@ public class ResumeService {
             user = new User();
             user.setEmail(email);
             user.setName(req.getName().trim());
+            if (req.getPhone() != null && !req.getPhone().trim().isEmpty()) {
+                user.setPhone(req.getPhone().trim());
+            }
             temporaryPassword = "BakeJob@" + (1000 + (int)(Math.random() * 9000));
             user.setPassword(this.passwordEncoder.encode(temporaryPassword));
 
@@ -143,6 +146,9 @@ public class ResumeService {
                 user.setRole(userRole);
             }
             user = this.userRepository.save(user);
+        } else if (user.getPhone() == null && req.getPhone() != null && !req.getPhone().trim().isEmpty()) {
+            user.setPhone(req.getPhone().trim());
+            this.userRepository.save(user);
         }
 
         // 3. Tạo Resume
@@ -152,15 +158,12 @@ public class ResumeService {
         resume.setUser(user);
         resume.setJob(job);
         resume.setStatus(ResumeStateEnum.PENDING);
-
-        String note = "[ỨNG TUYỂN QUA LINK RẢI]";
         if (req.getPhone() != null && !req.getPhone().trim().isEmpty()) {
-            note += " SĐT: " + req.getPhone().trim();
+            resume.setPhone(req.getPhone().trim());
         }
         if (req.getNote() != null && !req.getNote().trim().isEmpty()) {
-            note += " | " + req.getNote().trim();
+            resume.setMessage(req.getNote().trim());
         }
-        resume.setNote(note);
 
         Resume savedResume = this.resumeRepository.save(resume);
 
@@ -261,6 +264,8 @@ public class ResumeService {
         res.setId(resume.getId());
         res.setStatus(resume.getStatus());
         res.setEmail(resume.getEmail());
+        res.setPhone(resume.getPhone());
+        res.setMessage(resume.getMessage());
         res.setUrl(resume.getUrl());
         res.setMeetLink(resume.getMeetLink());
         res.setInterviewDate(resume.getInterviewDate());
