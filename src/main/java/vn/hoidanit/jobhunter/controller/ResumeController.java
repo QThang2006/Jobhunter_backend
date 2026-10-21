@@ -103,11 +103,20 @@ public class ResumeController {
             }
         }
         reqResume.setStatus(resume.getStatus());
-        if (resume.getInterviewDate() != null) reqResume.setInterviewDate(resume.getInterviewDate());
-        if (resume.getInterviewTime() != null) reqResume.setInterviewTime(resume.getInterviewTime());
-        if (resume.getInterviewType() != null) reqResume.setInterviewType(resume.getInterviewType());
-        if (resume.getNote() != null) reqResume.setNote(resume.getNote());
-        if (resume.getMeetLink() != null) reqResume.setMeetLink(resume.getMeetLink());
+        if (resume.getStatus() == vn.hoidanit.jobhunter.util.constant.ResumeStateEnum.APPROVED 
+                || resume.getStatus() == vn.hoidanit.jobhunter.util.constant.ResumeStateEnum.REJECTED) {
+            reqResume.setInterviewDate(null);
+            reqResume.setInterviewTime(null);
+            reqResume.setInterviewType(null);
+            reqResume.setNote(null);
+            reqResume.setMeetLink(null);
+        } else {
+            if (resume.getInterviewDate() != null) reqResume.setInterviewDate(resume.getInterviewDate());
+            if (resume.getInterviewTime() != null) reqResume.setInterviewTime(resume.getInterviewTime());
+            if (resume.getInterviewType() != null) reqResume.setInterviewType(resume.getInterviewType());
+            if (resume.getNote() != null) reqResume.setNote(resume.getNote());
+            if (resume.getMeetLink() != null) reqResume.setMeetLink(resume.getMeetLink());
+        }
 
         return ResponseEntity.ok().body(resumeService.update(reqResume));
     }

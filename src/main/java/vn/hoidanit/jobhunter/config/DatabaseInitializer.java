@@ -21,16 +21,19 @@ public class DatabaseInitializer implements CommandLineRunner {
     private final PermissionRepository permissionRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final vn.hoidanit.jobhunter.repository.ResumeRepository resumeRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DatabaseInitializer(
             PermissionRepository permissionRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
+            vn.hoidanit.jobhunter.repository.ResumeRepository resumeRepository,
             PasswordEncoder passwordEncoder) {
         this.permissionRepository = permissionRepository;
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
+        this.resumeRepository = resumeRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -38,6 +41,12 @@ public class DatabaseInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) throws Exception {
         System.out.println(">>> START INIT DATABASE");
+        try {
+            // Tự động giải phóng hoàn toàn lịch phỏng vấn cho các hồ sơ đã APPROVED hoặc REJECTED
+            this.resumeRepository.cleanInterviewSchedulesForApprovedAndRejected();
+        } catch (Exception e) {
+            System.err.println(">>> [INIT] Warning cleaning interview schedules: " + e.getMessage());
+        }
         long countPermissions = this.permissionRepository.count();
         long countRoles = this.roleRepository.count();
         long countUsers = this.userRepository.count();

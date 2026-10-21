@@ -330,11 +330,20 @@ public class ResumeService {
         res.setPhone(resume.getPhone());
         res.setMessage(resume.getMessage());
         res.setUrl(resume.getUrl());
-        res.setMeetLink(resume.getMeetLink());
-        res.setInterviewDate(resume.getInterviewDate());
-        res.setInterviewTime(resume.getInterviewTime());
-        res.setInterviewType(resume.getInterviewType());
-        res.setNote(resume.getNote());
+        // Khi hồ sơ đã trúng tuyển (APPROVED) hoặc bị từ chối (REJECTED), không hiển thị lịch phỏng vấn
+        if (resume.getStatus() == ResumeStateEnum.APPROVED || resume.getStatus() == ResumeStateEnum.REJECTED) {
+            res.setMeetLink(null);
+            res.setInterviewDate(null);
+            res.setInterviewTime(null);
+            res.setInterviewType(null);
+            res.setNote(null);
+        } else {
+            res.setMeetLink(resume.getMeetLink());
+            res.setInterviewDate(resume.getInterviewDate());
+            res.setInterviewTime(resume.getInterviewTime());
+            res.setInterviewType(resume.getInterviewType());
+            res.setNote(resume.getNote());
+        }
         res.setCreatedAt(resume.getCreatedAt());
         res.setUpdatedAt(resume.getUpdatedAt());
         res.setCreatedBy(resume.getCreatedBy());
