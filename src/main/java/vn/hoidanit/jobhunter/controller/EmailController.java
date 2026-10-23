@@ -14,6 +14,9 @@ import vn.hoidanit.jobhunter.util.constant.ResumeStateEnum;
 @RestController
 @RequestMapping("/api/v1")
 public class EmailController {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.service.AccessService access;
+
     private final EmailService emailService;
     private final SubscriberService subscriberService;
     private final ResumeRepository resumeRepository;
@@ -44,6 +47,7 @@ public class EmailController {
         Resume resume = resumeRepository.findById(reqInterview.getResumeId())
                 .orElseThrow(() -> new RuntimeException("Resume not found"));
 
+        access.requireCompany(resume.getJob().getCompany());
         // Khi lên lịch phỏng vấn: Chuyển trạng thái sang REVIEWING (đang phỏng vấn/xem xét)
         // và lưu thông tin ngày giờ, hình thức phỏng vấn vào DB
         resume.setStatus(ResumeStateEnum.REVIEWING);

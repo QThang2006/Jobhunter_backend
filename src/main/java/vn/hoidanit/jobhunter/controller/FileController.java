@@ -19,6 +19,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1")
 public class FileController {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.service.AccessService access;
+
 
     private final FileService fileService;
 
@@ -41,6 +44,14 @@ public class FileController {
 
     ) throws IOException, StorageException {
 
+        if (!List.of("resume", "company").contains(folder)) throw new StorageException("Invalid storage bucket");
+        if ("company".equals(folder)) {
+            var user = access.currentUser();
+            if (!access.hasPermission(user, "/api/v1/companies", "PUT")
+                    && !access.hasPermission(user, "/api/v1/companies", "POST")) {
+                throw new org.springframework.security.access.AccessDeniedException("Company upload permission required");
+            }
+        }
         if (file == null || file.isEmpty()) {
             throw new StorageException(
                     "File is empty. Please upload file."
@@ -50,6 +61,7 @@ public class FileController {
         String fileName =
                 file.getOriginalFilename();
 
+        if (fileName == null) throw new StorageException("File name is required");
         String extension =
                 fileName.substring(
                         fileName.lastIndexOf(".") + 1

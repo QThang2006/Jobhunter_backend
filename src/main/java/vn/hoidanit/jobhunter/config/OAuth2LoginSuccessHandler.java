@@ -31,7 +31,12 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     private Long refreshTokenExpiration;
 
     // URL của Frontend để redirect về sau khi login thành công
-    private static final String FRONTEND_REDIRECT_URL = "https://jobhunter-fe-one.vercel.app/oauth2/redirect";
+    @Value("${app.frontend-url:https://jobhunter-fe-one.vercel.app}")
+    private String frontendUrl;
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuthCookieFactory cookies;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public OAuth2LoginSuccessHandler(UserService userService,
                                      @Lazy SecurityUtil securityUtil,
@@ -52,8 +57,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         String email = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
 
-        if (email == null || email.isEmpty()) {
-            response.sendRedirect(FRONTEND_REDIRECT_URL + "?error=email_not_found");
+        if (email == null || email.isEmpty() || !Boolean.TRUE.equals(oAuth2User.getAttribute("email_verified"))) {
+            response.sendRedirect((frontendUrl + "/oauth2/redirect") + "?error=email_not_found");
             return;
         }
 
@@ -64,7 +69,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             user.setEmail(email);
             user.setName(name != null ? name : email);
             // Đặt password ngẫu nhiên vì đây là tài khoản OAuth2 (không đăng nhập bằng password)
-            user.setPassword(UUID.randomUUID().toString());
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
             user.setAge(0);
             user.setGender(GenderEnum.OTHER);
             user.setAddress("");
@@ -81,6 +86,8 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 user.getName(),
                 user.getRole()
         );
+        userService.populateCompany(userLogin, user);
+        userLogin.setPhone(user.getPhone());
         resLoginDTO.setUser(userLogin);
 
         String accessToken = securityUtil.createAccessToken(email, resLoginDTO);
@@ -91,15 +98,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         userService.updateUserToken(refreshToken, email);
 
         // Đặt refresh_token vào cookie
-        Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(refreshTokenExpiration.intValue());
-        // refreshCookie.setSecure(true); // Bật lên khi deploy HTTPS
-        response.addCookie(refreshCookie);
+        response.addHeader("Set-Cookie", cookies.refresh(refreshToken).toString());
 
         // Redirect về frontend kèm access_token
-        String redirectUrl = FRONTEND_REDIRECT_URL + "?access_token=" + accessToken;
+        String redirectUrl = (frontendUrl + "/oauth2/redirect") + "?access_token=" + accessToken;
         response.sendRedirect(redirectUrl);
     }
 }

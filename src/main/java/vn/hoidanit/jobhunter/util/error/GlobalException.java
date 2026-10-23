@@ -30,20 +30,20 @@ public class GlobalException {
 
 
     @ExceptionHandler(value = {
-            BadCredentialsException.class,
+            BadCredentialsException.class, org.springframework.security.oauth2.jwt.JwtException.class,
     })
     public ResponseEntity<RestResponse<Object>> handleCustomExceptions(Exception ex) {
         RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
+        res.setStatusCode(HttpStatus.UNAUTHORIZED.value());
         res.setError(ex.getMessage());
         res.setMessage("username or password fail");
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(res);
     }
 
     @ExceptionHandler(value = {
             UsernameNotFoundException.class,
-            IdInvalidException.class
+            IdInvalidException.class, IllegalArgumentException.class
     })
     public ResponseEntity<RestResponse<Object>> Exceptions(Exception ex) {
         RestResponse<Object> res = new RestResponse<>();
@@ -63,7 +63,7 @@ public class GlobalException {
         res.setError("404 Not Found. URL may not exist");
         res.setMessage(ex.getMessage());
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(res);
     }
 
 
@@ -103,7 +103,7 @@ public class GlobalException {
     }
 
     @ExceptionHandler(value = {
-            PermissionException.class
+            PermissionException.class, org.springframework.security.access.AccessDeniedException.class
     })
     public ResponseEntity<RestResponse<Object>> permissionException(Exception ex) {
         RestResponse<Object> res = new RestResponse<>();
@@ -111,7 +111,7 @@ public class GlobalException {
         res.setError("Forbidden");
         res.setMessage(ex.getMessage());
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(res);
     }
 
 }

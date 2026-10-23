@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class JobService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.service.AccessService access;
+
     private final JobRepository jobRepository;
     private final SkillRepository skillRepository;
     private final CompanyRepository companyRepository;
@@ -68,6 +71,8 @@ public class JobService {
             }
         }
 
+        access.requireCompany(j.getCompany());
+        j.setId(null);
         Job currentJob = jobRepository.save(j);
 
         ResCreateJobDTO dto = new ResCreateJobDTO();
@@ -102,6 +107,7 @@ public class JobService {
 
 
     public ResUpdateJobDTO update(Job j, Job jobInDB) throws IdInvalidException {
+        access.requireCompany(jobInDB.getCompany());
         String email = SecurityUtil.getCurrentUserLogin().isPresent() == true
                 ? SecurityUtil.getCurrentUserLogin().get()
                 : "" ;
@@ -131,6 +137,7 @@ public class JobService {
 
         //update
         jobInDB.setName(j.getName());
+        jobInDB.setDescription(j.getDescription());
         jobInDB.setActive(j.isActive());
         jobInDB.setLevel(j.getLevel());
         jobInDB.setLocation(j.getLocation());
@@ -179,6 +186,7 @@ public class JobService {
             }
         }
 
+        access.requireCompany(jobRepository.findById(id).orElseThrow().getCompany());
         resumeRepository.deleteByIdIn(resumeId);
         jobRepository.deleteById(id);
         simpMessagingTemplate.convertAndSend("/topic/jobs", "REFRESH");
@@ -211,6 +219,7 @@ public class JobService {
         Optional<Job> jobOptional = jobRepository.findById(id);
         if (jobOptional.isPresent()) {
             Job job = jobOptional.get();
+            access.requireCompany(job.getCompany());
 
             Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
             if (currentUserLogin.isPresent()) {
@@ -231,6 +240,7 @@ public class JobService {
     }
 
     public ResultPaginationDTO fetchAllJobsForAdmin(Specification<Job> spec, Pageable pageable) {
+        access.requireCompany(access.currentUser().getCompany());
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
 
         if (currentUserLogin.isPresent()) {

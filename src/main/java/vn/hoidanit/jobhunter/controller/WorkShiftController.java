@@ -92,7 +92,7 @@ public class WorkShiftController {
 
     @GetMapping("/shifts/employees")
     @ApiMessage("Fetch employees of a company for shift assignment")
-    public ResponseEntity<List<User>> fetchEmployees(@RequestParam(value = "companyId", required = false) Long companyId) {
+    public ResponseEntity<List<WorkShiftService.Employee>> fetchEmployees(@RequestParam(value = "companyId", required = false) Long companyId) {
         return ResponseEntity.ok(this.workShiftService.fetchEmployeesByCompany(companyId));
     }
 }

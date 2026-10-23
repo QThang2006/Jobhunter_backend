@@ -31,6 +31,12 @@ public class RoleService {
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
 
+    public Role defaultUserRole() {
+        Role role = roleRepository.findByName("USER");
+        if (role == null) throw new IllegalStateException("Default USER role has not been initialized");
+        return role;
+    }
+
     public boolean existByName(String name){
         return roleRepository.existsByName(name);
     }

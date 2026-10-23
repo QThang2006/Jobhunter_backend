@@ -23,6 +23,9 @@ import java.util.Optional;
 
 @Service
 public class CompanyService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.service.AccessService access;
+
 
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
@@ -47,6 +50,8 @@ public class CompanyService {
     }
 
     public Company handleCreateCompany(Company c) {
+        if (!access.isAdmin(access.currentUser())) throw new org.springframework.security.access.AccessDeniedException("Only administrators can create companies");
+        c.setId(null);
         this.simpMessagingTemplate.convertAndSend("/topic/companies", "REFRESH");
         return this.companyRepository.save(c);
     }
@@ -69,6 +74,7 @@ public class CompanyService {
     }
 
     public ResultPaginationDTO handleGetCompanyForAdmin(Specification<Company> spec, Pageable pageable) {
+        access.requireCompany(access.currentUser().getCompany());
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
 
         if (currentUserLogin.isPresent()) {
@@ -100,6 +106,7 @@ public class CompanyService {
     }
 
     public Company handleUpdateCompany(Company resCompany){
+        access.requireCompany(resCompany);
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
             User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
@@ -125,6 +132,7 @@ public class CompanyService {
 
     @Transactional
     public void handleDeleteCompany(Long id){
+        access.requireCompany(companyRepository.findById(id).orElseThrow());
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
             User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
@@ -144,7 +152,7 @@ public class CompanyService {
             if(users != null && !users.isEmpty()){
                 users.forEach(item -> {
                     item.setCompany(null);
-                    item.setRole(null);
+                    // Keep the account role when detaching a company. Tenant checks deny orphaned HR access.
                 });
                 userRepository.saveAll(users);
             }

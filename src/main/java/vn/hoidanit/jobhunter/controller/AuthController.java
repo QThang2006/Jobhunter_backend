@@ -32,6 +32,8 @@ import vn.hoidanit.jobhunter.util.error.IdInvalidException;
 @RestController
 @RequestMapping("/api/v1")
 public class AuthController {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.config.AuthCookieFactory cookies;
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final SecurityUtil securityUtil;
@@ -73,6 +75,7 @@ public class AuthController {
                 user.getRole()
         );
         userLogin.setPhone(user.getPhone());
+        userService.populateCompany(userLogin, user);
         res.setUser(userLogin);
 
         String access_token = securityUtil.createAccessToken(authentication.getName(),res);
@@ -81,13 +84,7 @@ public class AuthController {
         String refresh_token = securityUtil.createRefreshToken(reqLoginDTO.getUsername(), res);
         userService.updateUserToken(refresh_token, reqLoginDTO.getUsername());
 
-        ResponseCookie responseCookie = ResponseCookie
-                .from("refresh_token", refresh_token)
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(refreshTokenExpiration)
-                .build();
+        ResponseCookie responseCookie = cookies.refresh(refresh_token);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
@@ -101,6 +98,7 @@ public class AuthController {
                 ? SecurityUtil.getCurrentUserLogin().get()
                 : "";
         User currentUserDB = userService.handleGetUserByUsername(email);
+        if (currentUserDB == null) throw new org.springframework.security.authentication.BadCredentialsException("Account not found");
         Role role = currentUserDB.getRole();
 
 
@@ -111,6 +109,7 @@ public class AuthController {
             userLogin.setName(currentUserDB.getName());
             userLogin.setEmail(currentUserDB.getEmail());
             userLogin.setPhone(currentUserDB.getPhone());
+            userService.populateCompany(userLogin, currentUserDB);
             if (role != null && role.isActive()) {
                 userLogin.setRole(currentUserDB.getRole());
             } else {
@@ -147,6 +146,7 @@ public class AuthController {
                 user.getRole()
         );
         userLogin.setPhone(user.getPhone());
+        userService.populateCompany(userLogin, user);
         res.setUser(userLogin);
 
         String access_token = securityUtil.createAccessToken(email,res);
@@ -155,13 +155,7 @@ public class AuthController {
         String new_refresh_token = securityUtil.createRefreshToken(email, res);
         userService.updateUserToken(new_refresh_token,email);
 
-        ResponseCookie responseCookie = ResponseCookie
-                .from("refresh_token", refresh_token)
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(refreshTokenExpiration)
-                .build();
+        ResponseCookie responseCookie = cookies.refresh(new_refresh_token);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
@@ -178,13 +172,7 @@ public class AuthController {
             throw new IdInvalidException("Access Token ko hop le");
         }
         userService.updateUserToken("",email);
-        ResponseCookie deleteCookie = ResponseCookie
-                .from("refresh_token", null)
-                .httpOnly(true)
-                .path("/")
-                .secure(true)
-                .maxAge(0)
-                .build();
+        ResponseCookie deleteCookie = cookies.refresh(null);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,deleteCookie.toString())
@@ -194,6 +182,10 @@ public class AuthController {
     @PostMapping("/auth/register")
     @ApiMessage("register a user")
     public ResponseEntity<ResCreateUserDTO> register(@Valid  @RequestBody User user) throws IdInvalidException {
+        user.setId(null);
+        user.setCompany(null);
+        user.setRole(null);
+        user.setEmail(user.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
         boolean isEmailExist1 = userService.isEmailExist(user.getEmail());
         if(isEmailExist1){
             throw new IdInvalidException("Email: "+user.getEmail()+" da ton tai");

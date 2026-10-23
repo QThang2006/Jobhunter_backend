@@ -34,6 +34,9 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1")
 public class ResumeController {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.service.AccessService access;
+
 
     private final ResumeService resumeService;
     private final UserService userService;
@@ -52,28 +55,6 @@ public class ResumeController {
     @PostMapping("/resumes")
     @ApiMessage("created a resume")
     public ResponseEntity<ResCreateResumeDTO> create(@Valid @RequestBody Resume resume) throws IdInvalidException {
-        boolean isIdExist = resumeService.checkResumeExistByUserAndJob(resume);
-        if(!isIdExist){
-            throw new IdInvalidException("User or job ko ton tai");
-        }
-        String email = SecurityUtil.getCurrentUserLogin().isPresent() == true
-                ? SecurityUtil.getCurrentUserLogin().get()
-                : "" ;
-        List<Resume> resumeDB = resumeService.fetchByEmail(email,resume.getJob());
-        if(resumeDB.size()!=0){
-            boolean isValid=false;
-            isValid = resumeDB.stream().anyMatch(item -> {
-                Instant createdAt = item.getCreatedAt();
-                Instant start = item.getJob().getStartDate();
-                Instant end = item.getJob().getEndDate();
-
-                return createdAt.isAfter(start) && createdAt.isBefore(end);
-            });
-            if (isValid){
-                throw new IdInvalidException("bạn đã nộp cv cho đợt này hãy chờ hr duyệt cv or đợt sau");
-            }
-        }
-
 
         return ResponseEntity.status(HttpStatus.CREATED).body(resumeService.create(resume));
     }
@@ -93,6 +74,8 @@ public class ResumeController {
         }
 
         Resume reqResume = resumeOptional.get();
+        access.requireCompany(reqResume.getJob().getCompany());
+        if (resume.getStatus() == null) throw new IdInvalidException("Resume status is required");
         String email = SecurityUtil.getCurrentUserLogin().orElse("");
         User currentUser = userService.handleGetUserByUsername(email);
         if (currentUser != null && currentUser.getCompany() != null) {
@@ -130,6 +113,7 @@ public class ResumeController {
         }
 
         Resume reqResume = reqResumeOptional.get();
+        access.requireCompany(reqResume.getJob().getCompany());
         String email = SecurityUtil.getCurrentUserLogin().orElse("");
         User currentUser = userService.handleGetUserByUsername(email);
         if (currentUser != null && currentUser.getCompany() != null) {
@@ -154,6 +138,7 @@ public class ResumeController {
         }
 
         Resume reqResume = reqResumeOptional.get();
+        access.requireCompany(reqResume.getJob().getCompany());
         String email = SecurityUtil.getCurrentUserLogin().orElse("");
         User currentUser = userService.handleGetUserByUsername(email);
         if (currentUser != null && currentUser.getCompany() != null) {
@@ -173,6 +158,7 @@ public class ResumeController {
             @Filter Specification<Resume> spec,
             Pageable pageable ) {
 
+        access.requireCompany(access.currentUser().getCompany());
         Specification<Resume> finalSpec = spec;
         String email = SecurityUtil.getCurrentUserLogin().orElse("");
         User currentUser = userService.handleGetUserByUsername(email);

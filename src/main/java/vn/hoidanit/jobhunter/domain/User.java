@@ -2,6 +2,7 @@ package vn.hoidanit.jobhunter.domain;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -22,14 +23,17 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
     private String otp;
 
+    @JsonIgnore
     private Instant otpExpiredAt;
 
     private String name;
     @NotBlank(message = "email ko dc de trong")
     private String email;
     @NotBlank(message = "password ko dc de trong")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private int age;
@@ -42,6 +46,7 @@ public class User {
     private String phone;
 
     @Column(columnDefinition = "TEXT")
+    @JsonIgnore
     private String refreshToken;
 
     private Instant createdAt;

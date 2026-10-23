@@ -21,6 +21,8 @@ public class SubscriberController {
     @PostMapping("/subscribers")
     @ApiMessage(("create a subscriber"))
     public ResponseEntity<Subscriber> create(@Valid @RequestBody Subscriber sub) throws IdInvalidException {
+        sub.setId(null);
+        sub.setEmail(SecurityUtil.getCurrentUserLogin().orElseThrow());
         boolean isEmailExits = subscriberService.isExistsByEmail(sub.getEmail());
         if(isEmailExits){
             throw new IdInvalidException("Email "+sub.getEmail()+" da ton tai");
@@ -36,6 +38,9 @@ public class SubscriberController {
             throw new IdInvalidException("Id " + subRequest.getId() + "ko ton tai");
         }
 
+        if (!subsDB.getEmail().equals(SecurityUtil.getCurrentUserLogin().orElse(""))) {
+            throw new org.springframework.security.access.AccessDeniedException("Subscriber belongs to another account");
+        }
         return ResponseEntity.ok().body(subscriberService.update(subsDB,subRequest));
     }
 

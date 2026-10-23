@@ -57,6 +57,7 @@ public class SecurityUtil {
                 .expiresAt(validity)
                 .subject(email)
                 .claim("user", userInsideToken)
+                .claim("token_use", "access")
                 .claim("permission",listAuthority)
                 .build();
 
@@ -80,6 +81,8 @@ public class SecurityUtil {
                 .issuedAt(now)
                 .expiresAt(validity)
                 .subject(email)
+                .id(java.util.UUID.randomUUID().toString())
+                .claim("token_use", "refresh")
                 .claim("user", userInsideToken)
                 .build();
 
@@ -97,7 +100,11 @@ public class SecurityUtil {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
                 getSecretKey()).macAlgorithm(JWT_ALGORITHM).build();
         try {
-            return jwtDecoder.decode(token);
+            Jwt jwt = jwtDecoder.decode(token);
+            if (jwt.hasClaim("permission") || (jwt.hasClaim("token_use") && !"refresh".equals(jwt.getClaimAsString("token_use")))) {
+                throw new JwtException("A refresh token is required");
+            }
+            return jwt;
         } catch (Exception e) {
             System.out.println(">>> Refresh Token error: " + e.getMessage());
             throw e;

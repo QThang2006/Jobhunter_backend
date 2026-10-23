@@ -1,273 +1,231 @@
-# 🚀 JobHunter Backend RESTful API
+# BakeJobs - Backend REST API
 
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://www.oracle.com/java/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-blue.svg)](https://supabase.com/)
-[![Security](https://img.shields.io/badge/Spring%20Security-JWT%20%2B%20OAuth2-red.svg)](https://spring.io/projects/spring-security)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](#)
+Backend của **BakeJobs**, nền tảng tuyển dụng cho tiệm bánh/F&B, xử lý hồ sơ ứng tuyển, lịch phỏng vấn, thông báo và phân ca nhân viên. Tên repository `Jobhunter_backend` và package `vn.hoidanit.jobhunter` được giữ lại từ dự án nền tảng.
 
-Hệ thống Backend RESTful API cho nền tảng tuyển dụng công việc **JobHunter**, được xây dựng bằng **Spring Boot 3.2**, **Java 17**, tích hợp **PostgreSQL (Supabase)**, hệ thống bảo mật **JWT + OAuth2 (Google Login)**, phân quyền động **RBAC (Role-Based Access Control)**, và gửi mail thông báo tự động.
+Source sử dụng **Java 17, Spring Boot 3.2.4 và PostgreSQL trên Supabase**. Xem [README frontend](https://github.com/QThang2006/Jobhunter_FE/blob/main/README.md) để chạy giao diện. Tài liệu mô tả chức năng đang có cùng các lỗi đã biết, không khẳng định hệ thống đã hoàn thiện bảo mật hay kiểm thử production.
 
----
+## Công nghệ và kiến trúc
 
-## 📋 Mục lục
-
-1. [Giới thiệu chung](#-giới-thiệu-chung)
-2. [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
-3. [Tính năng chính](#-tính-năng-chính)
-4. [Kiến trúc hệ thống & Bảo mật](#-kiến-trúc-hệ-thống--bảo-mật)
-5. [Cấu trúc thư mục dự án](#-cấu-trúc-thư-mục-dự-án)
-6. [Danh sách API Endpoints](#-danh-sách-api-endpoints)
-7. [Cấu hình môi trường & BIến số](#-cấu-hình-môi-trường--biến-số)
-8. [Hướng dẫn cài đặt & Chạy ứng dụng](#-hướng-dẫn-cài-đặt--chạy-ứng-dụng)
-9. [Tài khoản khởi tạo mặc định](#-tài-khoản-khởi-tạo-mặc-định)
-
----
-
-## 📖 Giới thiệu chung
-
-**JobHunter Backend** đóng vai trò là API Server cung cấp toàn bộ logic xử lý dữ liệu cho ứng dụng tìm kiếm việc làm & quản lý tuyển dụng. Hệ thống hỗ trợ người tìm việc (Candidate), nhà tuyển dụng (Employer/HR) và quản trị viên (Super Admin) tương tác mượt mà qua giao diện REST API chuẩn hóa.
-
-Dự án được tích hợp các công nghệ hiện đại như **Supabase Storage** quản lý tệp tin CV/hình ảnh, dịch vụ gửi Email thông báo tự động (Brevo SMTP), và đăng nhập nhanh bằng **Google OAuth2**.
-
----
-
-## 🛠 Công nghệ sử dụng
-
-* **Core Framework**: Java 17, Spring Boot 3.2.4
-* **Build Tool**: Gradle (Kotlin DSL - `build.gradle.kts`)
-* **Database & Persistence**:
-  * PostgreSQL (Supabase Cloud Serverless DB)
-  * Spring Data JPA / Hibernate ORM
-  * `com.turkraft.springfilter`: Bộ lọc truy vấn động mạnh mẽ (Dynamic Filters & Search)
-* **Security & Authentication**:
-  * Spring Security 6
-  * JSON Web Token (JWT) - Access Token & Refresh Token (HttpOnly Cookie)
-  * OAuth2 Client (Google Social Login integration)
-  * BCrypt Password Encoder
-* **Third-party Integrations & Services**:
-  * **Groq AI API** (`openai/gpt-oss-20b`): Hỗ trợ AI Chat & tư vấn nghề nghiệp
-  * **Supabase Cloud Storage**: Lưu trữ CV (`.pdf`, `.doc`, `.docx`) và ảnh đại diện/logo
-  * **Brevo (Sendinblue) / Spring Mail**: Gửi email xác thực OTP, quên mật khẩu và email thông báo việc làm mới cho Subscriber
-  * **WebSocket / STOMP**: Hỗ trợ thông báo thời gian thực (Real-time notifications)
-* **Lombok & Validation**: Spring Validation (`jakarta.validation`), Project Lombok
-
----
-
-## ✨ Tính năng chính
-
-### 1. 🔐 Quản lý Tài khoản & Bảo mật (Auth & Security)
-* **Đăng ký & Đăng nhập**: Hỗ trợ đăng nhập mật khẩu và Google OAuth2.
-* **Xác thực JWT Dual-Token**:
-  * `access_token` trả về client để gửi kèm Authorization Header.
-  * `refresh_token` tự động lưu vào HttpOnly Cookie bảo mật và lưu DB để cấp lại Token mới khi hết hạn.
-* **Quên mật khẩu & Quản lý OTP**: Gửi mã OTP xác minh qua Email (Brevo SMTP) để đổi lại mật khẩu an toàn.
-
-### 2. 🛡 Phân quyền Động theo Vai trò (RBAC)
-* **Phân quyền linh hoạt**: Phân quyền chi tiết tới từng API URL + HTTP Method (`GET`, `POST`, `PUT`, `DELETE`).
-* **Custom PermissionInterceptor**: Kiểm tra quyền truy cập của người dùng đối với endpoint trước khi xử lý request.
-* **Database Initializer**: Tự động sinh danh sách Permissions và cấp quyền cho role `SUPER_ADMIN` khi chạy lần đầu.
-
-### 3. 🏢 Quản lý Công ty (Company Management)
-* Tạo, cập nhật, xóa và tìm kiếm danh sách công ty.
-* Tích hợp upload logo và tài liệu công ty lên Supabase Storage.
-* Hỗ trợ tìm kiếm phân trang và lọc dữ liệu đa tiêu chí.
-
-### 4. 💼 Quản lý Việc làm & Kỹ năng (Jobs & Skills Catalog)
-* Đăng tin tuyển dụng với chi tiết mức lương, vị trí, cấp bậc, địa điểm, mô tả công việc và danh sách kỹ năng yêu cầu.
-* Lọc danh sách công việc công khai theo từ khóa, địa điểm, mức lương và kỹ năng.
-
-### 5. 📄 Quản lý Hồ sơ Ứng tuyển (ATS / Resumes)
-* Ung viên nộp CV (định dạng PDF, DOC, DOCX) trực tiếp cho vị trí tuyển dụng.
-* Theo dõi trạng thái ứng tuyển: `PENDING`, `APPROVED`, `REJECTED`,...
-* HR/Admin quản lý, duyệt hoặc từ chối hồ sơ xin việc của ứng viên.
-
-### 6. 🔔 Đăng ký Nhận Tin tuyển dụng (Subscribers & Email Job Alerts)
-* Ứng viên đăng ký nhận thông tin việc làm phù hợp theo danh sách kỹ năng mong muốn.
-* Hệ thống tự động quét và gửi email thông báo định kỳ khi có công việc mới khớp với kỹ năng đã đăng ký.
-
-### 7. 📁 Quản lý Upload File (Supabase Storage)
-* Upload & Download file bảo mật lên Supabase Storage bucket.
-* Kiểm tra và giới hạn định dạng file upload (`pdf`, `jpg`, `jpeg`, `png`, `doc`, `docx`) với kích thước tối đa 50MB.
-
----
-
-## 📐 Kiến trúc hệ thống & Bảo mật
+| Thành phần | Công nghệ / chức năng |
+|---|---|
+| API | Spring Web, Validation, Lombok |
+| Build | Gradle Wrapper, Kotlin DSL |
+| Dữ liệu | PostgreSQL, Spring Data JPA/Hibernate, Spring Filter JPA 3.1.7 |
+| Xác thực | Spring Security, JWT HS512, BCrypt, OAuth2 Google |
+| File | Supabase Storage, CV và hình ảnh |
+| Email | JavaMail, Thymeleaf, Brevo SMTP cổng 2525 |
+| Kiểm tra email | Abstract API |
+| Thời gian thực | SockJS/STOMP, thông báo và sự kiện tải lại dữ liệu |
+| Phỏng vấn online | Webhook n8n, Google Calendar/Meet, Gmail |
 
 ```mermaid
-graph TD
-    Client[Client Frontend / Mobile] -->|HTTP Request / JWT| Security[Spring Security & JWT Filter]
-    Client -->|Google OAuth2| OAuth[Google OAuth2 Service]
-    Security -->|Permission Check| Interceptor[PermissionInterceptor]
-    Interceptor -->|Valid| Controller[REST Controllers]
-    Controller -->|Business Logic| Service[Services Layer]
-    Service -->|Data Query| Repo[Spring Data JPA Repositories]
-    Repo -->|PostgreSQL Protocol| SupabaseDB[(PostgreSQL Supabase)]
-    Service -->|Upload/Download| SupabaseStorage[Supabase Storage API]
-    Service -->|Send Mail/OTP| BrevoMail[Brevo SMTP Server]
+flowchart LR
+    FE["React frontend"] --> API["Spring Boot REST API"]
+    API --> S["Services"]
+    S --> DB[("PostgreSQL / Supabase")]
+    S --> ST["Supabase Storage"]
+    S --> MAIL["Brevo SMTP"]
+    S --> N8N["n8n → Calendar / Meet / Gmail"]
+    API --> WS["SockJS / STOMP"]
+    WS --> FE
 ```
 
----
+REST đi qua Spring Security. `PermissionInterceptor` kiểm tra quyền URL + method cho API quản trị; API public và API tự phục vụ có phạm vi riêng. Các thao tác tuyển dụng/phân ca còn kiểm tra công ty sở hữu dữ liệu. Quản trị tài khoản người khác yêu cầu `SUPER_ADMIN`; sửa hồ sơ cá nhân dùng `/users/me`. Source chưa có controller/service chat AI hoặc tích hợp Groq như README cũ mô tả.
 
-## 📂 Cấu trúc thư mục dự án
+## Nghiệp vụ
+
+### Tài khoản và ứng tuyển
+
+- Đăng ký tạo tài khoản; frontend chuyển về đăng nhập. Đăng ký không trả JWT để đăng nhập ngay.
+- Đăng nhập trả access token và refresh cookie HttpOnly. Refresh token được lưu vào database để đối chiếu; mỗi lần refresh tạo token mới và trả đúng token đó trong cookie `Secure; HttpOnly; SameSite=None` khi deploy HTTPS.
+- Có Google OAuth2, quên mật khẩu qua OTP, xác minh OTP, đặt lại và đổi mật khẩu.
+- Người đã đăng nhập nộp hồ sơ qua `POST /api/v1/resumes`.
+- Khách ứng tuyển nhanh qua `POST /api/v1/resumes/quick-apply`. Backend chuẩn hóa email, tìm user hoặc tạo user mới rồi gửi mật khẩu tạm. Role `USER` được seed và dùng mặc định; thông tin role/company từ request đăng ký bị bỏ qua.
+
+### Phỏng vấn và kết quả tuyển dụng
+
+| Trạng thái hồ sơ | Ý nghĩa / xử lý |
+|---|---|
+| `PENDING` | Hồ sơ mới, chờ xem xét |
+| `REVIEWING` | Đang xem xét/phỏng vấn; luồng hẹn phỏng vấn lưu ngày, giờ, hình thức và ghi chú |
+| `APPROVED` | Nhận ứng viên, gắn user vào công ty của job, xóa trường lịch phỏng vấn, gửi email nhận việc và thông báo |
+| `REJECTED` | Từ chối, xóa trường lịch phỏng vấn và gửi email từ chối |
+
+`POST /api/v1/email/approve` và alias `/api/v1/email/schedule-interview` cùng xử lý hẹn phỏng vấn và đặt trạng thái `REVIEWING`. Tên endpoint `/approve` là tên cũ, không có nghĩa chuyển hồ sơ sang `APPROVED`.
+
+Với `ONLINE_MEET`, backend gọi webhook n8n để tạo lịch Google Calendar/Meet, gửi Gmail và trả link Meet để lưu vào hồ sơ. Nếu không lấy được link, có nhánh gửi thư mời trực tiếp bằng SMTP. Với `OFFLINE`, backend gửi thư mời qua SMTP.
+
+### Phân ca và thông báo
+
+- `WorkShift` liên kết nhân viên, công ty và job tùy chọn. Trạng thái: `ASSIGNED`, `CONFIRMED`, `COMPLETED`, `TRANSFERRED`, `CANCELLED`.
+- Có tạo, sửa, xóa, xem ca, lấy ca cá nhân và danh sách nhân viên dạng DTO tối thiểu. Kiểm tra nhân viên/job cùng công ty và giờ trùng, kể cả ca qua đêm; khóa nhân viên trong transaction để tránh phân ca trùng đồng thời. Chuyển ca cập nhật người nhận/ngày trên bản ghi hiện tại, thêm lịch sử vào note.
+- `Notification` lưu trong database, hỗ trợ đếm chưa đọc và đánh dấu đã đọc.
+- SockJS endpoint `/ws` phát STOMP marker như `REFRESH`, `NEW_NOTIFICATION`; frontend nhận marker rồi gọi REST để tải dữ liệu. Có topic cho users, roles, permissions, companies, jobs, skills, resumes, shifts và các topic theo user. Đây là cơ chế cập nhật dữ liệu/thông báo.
+
+### Email việc làm và file
+
+Subscriber đăng ký kỹ năng để nhận việc phù hợp. **Gửi email được kích hoạt bởi `GET /api/v1/email`**, hiện chưa có scheduler gửi định kỳ. Tác vụ `@Scheduled` hiện có dùng để dọn OTP, chu kỳ 60 giây.
+
+`POST /api/v1/files` nhận multipart `file` và `folder` (frontend dùng bucket `resume` hoặc `company`). `data.fileName` trả URL public đầy đủ. Extension được cho phép: `pdf`, `jpg`, `jpeg`, `png`, `doc`, `docx`; cấu hình giới hạn file/request 50 MB. `GET /api/v1/files?fileUrl=...` tải file theo URL. Ứng tuyển khách vẫn được upload CV vào bucket `resume`. Upload vào `company` yêu cầu quyền quản lý công ty. Download chỉ nhận HTTPS URL public của bucket `resume`/`company` trên đúng Supabase project, không theo redirect và có timeout.
+
+## Mô hình dữ liệu và cấu trúc
+
+| Entity | Quan hệ chính |
+|---|---|
+| `User` | Thuộc `Role`, có thể thuộc `Company` |
+| `Company` | Có users và jobs |
+| `Job` | Thuộc company, nhiều skills |
+| `Skill` | Dùng cho jobs và subscribers |
+| `Resume` | Liên kết user/job, lưu trạng thái và lịch phỏng vấn |
+| `Role`, `Permission` | Quan hệ nhiều-nhiều; permission có URL, method, module |
+| `Subscriber` | Email đăng ký và danh sách skills |
+| `Notification` | Thuộc user, có thể liên kết resume |
+| `WorkShift` | Thuộc user/company, job tùy chọn |
 
 ```text
 src/main/java/vn/hoidanit/jobhunter/
-├── config/                         # Các cấu hình hệ thống
-│   ├── AppConfig.java              # RestTemplate & Bean Config
-│   ├── CorsConfig.java             # Cấu hình CORS Cross-Origin
-│   ├── DatabaseInitializer.java    # Khởi tạo dữ liệu Role, Permission, Admin ban đầu
-│   ├── OAuth2LoginSuccessHandler.java # Xử lý Google OAuth2 đăng nhập thành công
-│   ├── PermissionInterceptor.java  # Interceptor kiểm tra quyền động (RBAC)
-│   ├── SecurityConfiguration.java  # Spring Security 6 & JWT Filter Chain
-│   └── WebSocketConfig.java        # Cấu hình STOMP / WebSocket
-├── controller/                     # REST API Controllers (V1)
-│   ├── AuthController.java         # Auth, Login, Logout, Register, OTP, Reset Pass
-│   ├── CompanyController.java      # CRUD Công ty
-│   ├── FileController.java         # Upload/Download File qua Supabase
-│   ├── JobController.java          # CRUD Việc làm
-│   ├── ResumeController.java       # CRUD & Duyệt hồ sơ ứng tuyển (CV)
-│   ├── SkillController.java        # Quản lý danh mục Kỹ năng
-│   ├── SubscriberController.java   # Đăng ký nhận thông báo việc làm
-│   └── UserController.java         # Quản lý Người dùng
-├── domain/                         # JPA Entities & DTOs
-│   ├── request/                    # Request Body DTOs
-│   └── response/                   # Response Output DTOs & Wrapper
-├── repository/                     # Spring Data JPA Interfaces
-├── service/                        # Business Logic implementation
-└── util/                           # Utilities & Custom Annotations
-    ├── SecurityUtil.java           # JWT generator & Spring Security Context Helper
-    └── error/                      # Custom Exceptions & Global Exception Handler
+├── config/       # Security, CORS, OAuth2, WebSocket, khởi tạo dữ liệu
+├── controller/   # REST endpoints
+├── domain/       # Entities, request/response DTOs
+├── repository/   # Spring Data JPA
+├── service/      # Nghiệp vụ và tích hợp dịch vụ ngoài
+└── util/         # JWT, constants, annotations, xử lý lỗi
+src/main/resources/
+├── application.properties
+└── templates/    # Thymeleaf email
+src/test/         # Hiện có contextLoads
 ```
 
----
+Schema hiện được Hibernate cập nhật bằng `spring.jpa.hibernate.ddl-auto=update`; chưa có bộ migration có version trong source.
 
-## 🔌 Danh sách API Endpoints chính
+## API hiện có
 
-### 1. Authentication & Account (`/api/v1/auth`)
-| Method | Endpoint | Mô tả | Quyền truy cập |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/login` | Đăng nhập hệ thống (Lấy Access Token & Cookie Refresh Token) | Public |
-| `GET` | `/api/v1/auth/account` | Lấy thông tin tài khoản hiện tại | Authenticated |
-| `GET` | `/api/v1/auth/refresh` | Cấp lại Access Token mới bằng Refresh Token | Public (Cookie) |
-| `POST` | `/api/v1/auth/logout` | Đăng xuất tài khoản và xóa Cookie | Authenticated |
-| `POST` | `/api/v1/auth/register` | Đăng ký tài khoản người dùng mới | Public |
-| `POST` | `/api/v1/auth/forgot-password` | Gửi mã OTP khôi phục mật khẩu qua Email | Public |
-| `POST` | `/api/v1/auth/verify-otp` | Xác minh mã OTP | Public |
-| `POST` | `/api/v1/auth/reset-password` | Đặt lại mật khẩu mới | Public |
+Các path trong bảng có prefix `/api/v1`. Bảng liệt kê mapping trong controller, không bảo đảm từng endpoint đã được phân quyền đầy đủ.
 
-### 2. Việc làm (`/api/v1/jobs`) & Công ty (`/api/v1/companies`)
-| Method | Endpoint | Mô tả | Quyền truy cập |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/jobs` | Lấy danh sách việc làm (có phân trang & bộ lọc) | Public |
-| `GET` | `/api/v1/jobs/{id}` | Lấy chi tiết việc làm theo ID | Public |
-| `POST` | `/api/v1/jobs` | Tạo việc làm mới | RBAC Permission |
-| `PUT` | `/api/v1/jobs` | Cập nhật thông tin việc làm | RBAC Permission |
-| `DELETE` | `/api/v1/jobs/{id}` | Xóa việc làm | RBAC Permission |
-| `GET` | `/api/v1/companies` | Lấy danh sách công ty | Public |
-| `GET` | `/api/v1/companies/{id}` | Lấy chi tiết công ty theo ID | Public |
+| Method | Path | Chức năng |
+|---|---|---|
+| POST | `/auth/login`, `/auth/register`, `/auth/logout` | Đăng nhập, đăng ký, đăng xuất |
+| GET | `/auth/account`, `/auth/refresh` | Lấy tài khoản / cấp lại token |
+| POST | `/auth/forgot-password`, `/auth/verify-otp`, `/auth/reset-password` | Khôi phục mật khẩu |
+| GET | `/users`, `/users/{id}` | Danh sách / chi tiết user |
+| POST, PUT | `/users` | Tạo / sửa user |
+| DELETE | `/users/{id}` | Xóa user, trả HTTP 204 |
+| GET, PUT | `/users/me` | Xem / sửa hồ sơ cá nhân, không đổi role/company/email |
+| POST | `/users/change-password` | Đổi mật khẩu |
+| GET | `/companies`, `/companies/{id}`, `/companies/by-user` | Tra cứu công ty |
+| POST, PUT | `/companies` | Tạo / sửa công ty |
+| DELETE | `/companies/{id}` | Xóa công ty |
+| GET | `/jobs`, `/jobs/{id}`, `/jobs/by-company` | Tra cứu tin tuyển dụng |
+| POST, PUT | `/jobs` | Tạo / sửa tin |
+| DELETE | `/jobs/{id}` | Xóa tin |
+| PATCH | `/jobs/{id}/active?status=true` | Bật/tắt tin bằng query `status` |
+| GET, POST, PUT | `/skills` | Danh sách / tạo / sửa kỹ năng |
+| DELETE | `/skills/{id}` | Xóa kỹ năng |
+| POST | `/resumes`, `/resumes/quick-apply` | Nộp hồ sơ / ứng tuyển nhanh |
+| GET | `/resumes`, `/resumes/{id}` | Danh sách / chi tiết hồ sơ |
+| POST | `/resumes/by-user` | Hồ sơ của tài khoản hiện tại |
+| PUT | `/resumes` | Cập nhật hồ sơ/trạng thái |
+| DELETE | `/resumes/{id}` | Xóa hồ sơ |
+| GET | `/email` | Kích hoạt gửi email việc làm |
+| POST | `/email/approve`, `/email/schedule-interview` | Hai alias hẹn phỏng vấn |
+| POST, PUT | `/subscribers` | Tạo / cập nhật đăng ký nhận tin |
+| POST | `/subscribers/skills` | Lấy đăng ký kỹ năng của tài khoản |
+| GET, POST, PUT | `/permissions` | Danh sách / tạo / sửa quyền |
+| DELETE | `/permissions/{id}` | Xóa quyền |
+| GET, POST, PUT | `/roles` | Danh sách / tạo / sửa vai trò |
+| GET, DELETE | `/roles/{id}` | Chi tiết / xóa vai trò |
+| GET | `/notifications`, `/notifications/unread-count` | Thông báo / số chưa đọc |
+| PUT | `/notifications/{id}/read`, `/notifications/read-all` | Đánh dấu đã đọc |
+| GET, POST | `/shifts` | Danh sách / tạo ca |
+| GET, PUT, DELETE | `/shifts/{id}` | Chi tiết / sửa / xóa ca |
+| POST | `/shifts/transfer` | Chuyển ca |
+| GET | `/shifts/my-shifts`, `/shifts/employees` | Ca cá nhân / danh sách nhân viên |
+| POST, GET | `/files` | Upload / download |
 
-### 3. Hồ sơ ứng tuyển ATS (`/api/v1/resumes`)
-| Method | Endpoint | Mô tả | Quyền truy cập |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/resumes` | Nộp hồ sơ ứng tuyển CV | RBAC Permission |
-| `PUT` | `/api/v1/resumes` | Cập nhật trạng thái hồ sơ (APPROVED, REJECTED,...) | RBAC Permission |
-| `GET` | `/api/v1/resumes/{id}` | Lấy chi tiết hồ sơ | RBAC Permission |
-| `GET` | `/api/v1/resumes` | Lấy danh sách hồ sơ ứng tuyển | RBAC Permission |
+Chưa có GET chi tiết skill/permission hay API liệt kê, lấy chi tiết, xóa subscriber trong controller, dù frontend có thể khai báo API helper tương ứng.
 
-### 4. Upload File (`/api/v1/files`)
-| Method | Endpoint | Mô tả | Quyền truy cập |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/files` | Upload file (CV, Logo, Image) lên Supabase Storage | Authenticated |
-| `GET` | `/api/v1/files` | Download file theo URL | Public |
+Ngoài prefix API: `GET`/`HEAD /` trả health response `OK`; Google login bắt đầu ở `/oauth2/authorization/google`, callback tại `/login/oauth2/code/google`; SockJS tại `/ws`.
 
----
+Response thông thường được bọc thành `{statusCode, error, message, data}`. Response dạng string hoặc Resource không đi qua wrapper này. Danh sách phân trang có `data.meta` (`page`, `pageSize`, `pages`, `total`) và `data.result`. Trang bắt đầu từ 1; dùng `page`, `size`, `sort=field,desc`, và `filter` ở endpoint hỗ trợ Spring Filter.
 
-## ⚙️ Cấu hình môi trường & Biến số
+## Cấu hình và chạy local
 
-Tạo hoặc cập nhật cấu hình trong file [`src/main/resources/application.properties`](file:///c:/Users/ADMIN/javaSpring/01-java-spring-jobhunter-starter-master/src/main/resources/application.properties):
+Cần **JDK 17**, PostgreSQL và kết nối tới các dịch vụ được sử dụng. Dùng Gradle Wrapper đi kèm, không bắt buộc cài Gradle riêng. Chạy các lệnh sau tại `Jobhunter_backend`.
+
+[application.properties](src/main/resources/application.properties) đọc thông tin database, JWT, Supabase và SMTP qua environment. Danh sách biến bắt buộc và thứ tự deploy nằm trong [DEPLOYMENT.md](DEPLOYMENT.md). Không commit secret thật. Spring Boot không tự nạp file `.env` như Vite.
+
+Các placeholder cần cung cấp bằng environment/IDE:
+
+```bash
+export GOOGLE_CLIENT_ID='<google-client-id>'
+export GOOGLE_CLIENT_SECRET='<google-client-secret>'
+export N8N_INTERVIEW_MEET_WEBHOOK='https://<n8n-host>/webhook/<workflow-path>'
+export SPRING_MAIL_PASSWORD='<brevo-smtp-password>'
+export SPRING_MAIL_USERNAME='<brevo-smtp-user>'
+```
+
+Tạo file cấu hình riêng **ngoài repository**, ví dụ `/absolute/path/bakejobs-local.properties`, thay mọi placeholder bằng cấu hình của bạn:
 
 ```properties
-spring.application.name=jobhunter
-
-# Database Configuration (PostgreSQL / Supabase)
-spring.datasource.url=jdbc:postgresql://<HOST>:<PORT>/<DATABASE>?prepareThreshold=0
-spring.datasource.username=<DATABASE_USERNAME>
-spring.datasource.password=<DATABASE_PASSWORD>
-spring.datasource.driver-class-name=org.postgresql.Driver
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# JWT Configuration
-jwt.base64-secret=<YOUR_BASE64_JWT_SECRET_KEY>
-jwt.access-token-validity-in-seconds=86400
-jwt.refresh-token-validity-in-seconds=864000
-
-# Supabase Storage Configuration
-supabase.url=https://<SUPABASE_PROJECT_ID>.supabase.co
-supabase.key=<SUPABASE_ANON_KEY>
-
-# Brevo Mail SMTP Configuration
-spring.mail.host=smtp-relay.brevo.com
-spring.mail.port=2525
-spring.mail.username=<BREVO_SMTP_USERNAME>
-spring.mail.password=${SPRING_MAIL_PASSWORD}
-
-# Google OAuth2 Credentials
-spring.security.oauth2.client.registration.google.client-id=${GOOGLE_CLIENT_ID}
-spring.security.oauth2.client.registration.google.client-secret=${GOOGLE_CLIENT_SECRET}
-spring.security.oauth2.client.registration.google.scope=email,profile
+spring.datasource.url=jdbc:postgresql://<host>:<port>/<database>?prepareThreshold=0
+spring.datasource.username=<database-user>
+spring.datasource.password=<database-password>
+supabase.url=https://<project-id>.supabase.co
+supabase.key=<storage-api-key-with-required-permissions>
+spring.mail.username=<brevo-smtp-user>
+jwt.base64-secret=<base64-encoded-random-key-at-least-64-bytes>
+# Vi du thoi han ngan hon cho moi truong rieng:
+jwt.access-token-validity-in-seconds=900
+jwt.refresh-token-validity-in-seconds=604800
 ```
 
----
+```bash
+./gradlew bootRun --args='--spring.config.additional-location=file:/absolute/path/bakejobs-local.properties'
+```
 
-## 🚀 Hướng dẫn cài đặt & Chạy ứng dụng
+Ứng dụng mặc định chạy tại [http://localhost:8080](http://localhost:8080). Giá trị JWT **trong source hiện tại** là `8640000` giây cho cả access và refresh token (100 ngày); giá trị 900/604800 ở ví dụ là override đề xuất, không phải cấu hình đang có.
 
-### Yêu cầu tiên quyết
-* **Java**: JDK 17 trở lên
-* **Gradle**: 8.x (hoặc dùng Gradle Wrapper đi kèm `./gradlew`)
-* **Database**: PostgreSQL (hoặc tài khoản Cloud PostgreSQL Supabase)
+Có thể dùng environment để override các cấu hình phổ biến: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `SUPABASE_URL`, `SUPABASE_KEY`, `SPRING_MAIL_USERNAME`. Supabase cần các bucket tương ứng; code hiện trả URL public nên chính sách bucket phải phù hợp với cách tải file này.
 
-### Các bước khởi chạy
+Google Console cần redirect URI trỏ về `/login/oauth2/code/google` của backend. Đặt `FRONTEND_URL` để chọn frontend redirect, `CORS_ALLOWED_ORIGINS` để cho phép đúng origin. Local HTTP dùng `AUTH_COOKIE_SECURE=false`; production HTTPS giữ `true`.
 
-1. **Clone repository về máy**:
-   ```bash
-   git clone https://github.com/QThang2006/Jobhunter_backend.git
-   cd Jobhunter_backend
-   ```
+### Cấu hình n8n
 
-2. **Thiết lập biến môi trường** (hoặc cấu hình trực tiếp trong `application.properties`):
-   ```bash
-   export SPRING_MAIL_PASSWORD="your_brevo_smtp_password"
-   export GOOGLE_CLIENT_ID="your_google_client_id"
-   export GOOGLE_CLIENT_SECRET="your_google_client_secret"
-   ```
+1. Import [workflow phỏng vấn](https://github.com/QThang2006/Jobhunter_FE/blob/main/src/resources/n8n/n8n-interview-meet-workflow.json) vào n8n.
+2. Thiết lập Google credentials cho Calendar và Gmail, cùng calendar/tài khoản gửi phù hợp.
+3. Kiểm tra múi giờ `Asia/Ho_Chi_Minh`; workflow mẫu tạo lịch dài 45 phút.
+4. Kích hoạt workflow và gán URL webhook production vào `N8N_INTERVIEW_MEET_WEBHOOK` trước khi chạy backend.
+5. Thử hẹn phỏng vấn `ONLINE_MEET`, kiểm tra event, email và `meetLink` trả về.
 
-3. **Build dự án bằng Gradle**:
-   ```bash
-   ./gradlew clean build -x test
-   ```
+Bản export lưu `active: false`; đây là trạng thái file export, không xác nhận trạng thái workflow đang chạy trên máy chủ. Nhánh fallback SMTP không bảo đảm có link Meet.
 
-4. **Khởi chạy ứng dụng Spring Boot**:
-   ```bash
-   ./gradlew bootRun
-   ```
+## Khởi tạo dữ liệu, build và kiểm thử
 
-Ứng dụng sẽ chạy tại địa chỉ: `http://localhost:8080`
+[DatabaseInitializer](src/main/java/vn/hoidanit/jobhunter/config/DatabaseInitializer.java) seed permissions và `SUPER_ADMIN` cho database trống, bổ sung `USER`, gán role này cho tài khoản chưa có role, đồng bộ permissions cho `SUPER_ADMIN`. Role HR tùy chỉnh phải được cấp permissions tuyển dụng/phân ca cần thiết và gắn với công ty.
 
----
+Database trống chỉ tạo `admin@gmail.com` khi có `BOOTSTRAP_ADMIN_PASSWORD`; không còn mật khẩu admin cố định trong source. Khi khởi động còn có bước dọn lịch phỏng vấn của hồ sơ `APPROVED`/`REJECTED`.
 
-## 👤 Tài khoản khởi tạo mặc định
+```bash
+./gradlew test
+./gradlew bootJar
+```
 
-Khi ứng dụng khởi chạy lần đầu tiên, `DatabaseInitializer` sẽ tự động tạo dữ liệu mẫu bao gồm danh sách Permissions, Role `SUPER_ADMIN` và tài khoản Admin mặc định:
+Tests dùng profile `test` với H2 trong bộ nhớ và cấu hình thử riêng; không cần truy cập database production. Bao gồm khởi động context, kiểm tra API phân quyền/hồ sơ cá nhân, đăng ký không nâng quyền, dữ liệu nhân viên, CORS, token/cookie, OTP, tải file, hồ sơ trùng và ca làm qua đêm. Test gọi nghiệp vụ gửi mail dùng mock.
 
-* **Email**: `admin@gmail.com`
-* **Mật khẩu**: `123456`
-* **Quyền hạn**: `SUPER_ADMIN` (Toàn quyền truy cập tất cả các Endpoints API)
+[Dockerfile](Dockerfile) dùng Gradle 8.7/JDK 17 để chạy `clean bootJar`, rồi Temurin 17 JRE chạy executable JAR. Chỉ tạo boot JAR để tránh wildcard COPY lấy cả plain JAR. Docker build không chạy test; cần chạy `./gradlew test` trước deploy.
 
----
+## Các lỗi đã sửa và giới hạn còn lại
 
-## 🤝 Đóng góp & Giấy phép
+- Khôi phục kiểm tra quyền API quản trị, giới hạn dữ liệu theo công ty; tách quyền sửa hồ sơ cá nhân khỏi đổi role/company và chặn tự nâng quyền khi đăng ký.
+- Ẩn password/refresh token/OTP khi serialize user; danh sách nhân viên dùng DTO tối thiểu.
+- Bỏ secret khỏi source; refresh trả cookie token mới, phân biệt access/refresh token và thống nhất cookie OAuth. Token cũ có thể bị vô hiệu khi đổi JWT secret.
+- Giới hạn tải file về đúng Supabase project, kiểm tra bucket upload; xác thực và kiểm tra topic STOMP, chặn client phát thông báo giả.
+- Sửa cập nhật mô tả job, CORS PATCH, role mặc định, company trong account API, validation email, binding xóa user và lưu các trường hồ sơ cá nhân.
+- Kiểm tra hạn OTP tại thời điểm xác minh; đổi mật khẩu lưu hash mới và thu hồi refresh token. Nộp CV dùng user hiện tại, luôn bắt đầu ở `PENDING`, kiểm tra thời gian tuyển và trùng hồ sơ.
+- Ca làm kiểm tra công ty và trùng giờ. Lỗi quyền/not-found trả đúng HTTP 403/404. Chi tiết thay đổi frontend nằm trong README frontend.
 
-Dự án phát triển bởi **QThang2006** dưới sự hỗ trợ cấu trúc từ khóa học Java Spring Boot HoiDanIT.
-Giấy phép mở **MIT License**.
+Các kiểm thử này không thay thế kiểm tra Google OAuth, Supabase PostgreSQL, SMTP, n8n/Meet và cookie trình duyệt trên môi trường thật. H2 không mô phỏng đầy đủ hành vi/khóa của PostgreSQL. Public quick-apply/upload vẫn cần rate limiting và chính sách lưu trữ phù hợp trước khi mở rộng lưu lượng. CV hiện dùng URL public; chuyển sang file private/signed URL là thay đổi thiết kế riêng. Secret từng commit vẫn tồn tại trong lịch sử Git, cần thay credential tại nhà cung cấp.
+
+## Nguồn gốc
+
+Phát triển bởi **Ngô Quốc Thắng / QThang2006**, dựa trên cấu trúc khóa học Spring Boot RESTful API của [Hỏi Dân IT](https://www.youtube.com/@hoiDanIT). Chưa có file LICENSE trong source được đối chiếu nên tài liệu không khẳng định giấy phép MIT.

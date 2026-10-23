@@ -22,6 +22,7 @@ public class ResLoginDTO {
         private String name;
         private Role role;
         private String phone;
+        private CompanyLogin company;
 
         public UserLogin(long id, String email, String name, Role role) {
             this.id = id;
@@ -29,6 +30,15 @@ public class ResLoginDTO {
             this.name = name;
             this.role = role;
         }
+    }
+
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    public static class CompanyLogin {
+        private Long id;
+        private String name;
+        private String logo;
     }
 
     @Getter

@@ -45,12 +45,17 @@ public class EmailService {
         this.jobRepository = jobRepository;
     }
 
-    private final String API_KEY = "a48f032cc416409581555b1fba7ad04c";
-    private final String URL = "https://emailreputation.abstractapi.com/v1/?api_key=" + API_KEY + "&email=";
+    @Value("${abstract.api-key:}")
+    private String emailValidationKey;
 
     public boolean checkEmailExist(String email) {
+        if (email == null || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) return false;
+        if (emailValidationKey == null || emailValidationKey.isBlank()) return true;
         try {
-            String finalUrl = URL + email;
+            String finalUrl = org.springframework.web.util.UriComponentsBuilder
+                    .fromHttpUrl("https://emailreputation.abstractapi.com/v1/")
+                    .queryParam("api_key", emailValidationKey).queryParam("email", email)
+                    .build().encode().toUriString();
             EmailValidationResponse response = restTemplate.getForObject(finalUrl, EmailValidationResponse.class);
 
             if (response != null && response.getEmailDeliverability() != null) {
@@ -59,8 +64,7 @@ public class EmailService {
                 return result;
             }
         } catch (Exception e) {
-            System.err.println(">>> [ABSTRACT API CRASH] Lỗi kết nối API hoặc quá giới hạn 429: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Email validation provider unavailable");
             return false;
         }
         return false;

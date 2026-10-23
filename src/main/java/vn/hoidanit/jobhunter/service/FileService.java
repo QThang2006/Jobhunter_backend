@@ -111,33 +111,50 @@ public class FileService {
                 + finalName;
     }
 
-    // =========================
-    // DOWNLOAD FILE
-    // =========================
-    public InputStreamResource getResource(
-            String fileUrl
-    ) throws IOException {
-
-        URL url = new URL(fileUrl);
-
-        InputStream inputStream =
-                url.openStream();
-
-        return new InputStreamResource(
-                inputStream
-        );
+    public java.net.URI validateDownloadUrl(String fileUrl) {
+        try {
+            java.net.URI base = java.net.URI.create(supabaseUrl);
+            java.net.URI target = java.net.URI.create(fileUrl);
+            String path = target.getRawPath();
+            if (!"https".equalsIgnoreCase(target.getScheme()) || target.getHost() == null
+                    || !target.getHost().equalsIgnoreCase(base.getHost()) || target.getPort() != base.getPort()
+                    || target.getUserInfo() != null || target.getQuery() != null || target.getFragment() != null
+                    || path == null || !path.matches("/storage/v1/object/public/(resume|company)/[A-Za-z0-9_-][A-Za-z0-9._-]*")
+                    || !target.normalize().equals(target)) {
+                throw new IllegalArgumentException("Only this project's public storage files can be downloaded");
+            }
+            return target;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid storage file URL");
+        }
     }
 
-    // =========================
-    // GET FILE LENGTH
-    // =========================
-    public long getFileLength(
-            String fileUrl
-    ) throws IOException {
+    private java.net.HttpURLConnection openDownload(String fileUrl, String method) throws IOException {
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) validateDownloadUrl(fileUrl).toURL().openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(15000);
+        connection.setRequestMethod(method);
+        int status = connection.getResponseCode();
+        if (status < 200 || status >= 300) {
+            connection.disconnect();
+            throw new IOException("Storage download failed with status " + status);
+        }
+        return connection;
+    }
 
-        URL url = new URL(fileUrl);
+    public InputStreamResource getResource(String fileUrl) throws IOException {
+        java.net.HttpURLConnection connection = openDownload(fileUrl, "GET");
+        return new InputStreamResource(new FilterInputStream(connection.getInputStream()) {
+            @Override
+            public void close() throws IOException {
+                try { super.close(); } finally { connection.disconnect(); }
+            }
+        });
+    }
 
-        return url.openConnection()
-                .getContentLengthLong();
+    public long getFileLength(String fileUrl) throws IOException {
+        java.net.HttpURLConnection connection = openDownload(fileUrl, "HEAD");
+        try { return connection.getContentLengthLong(); } finally { connection.disconnect(); }
     }
 }

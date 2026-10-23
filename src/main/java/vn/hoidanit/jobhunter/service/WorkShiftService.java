@@ -21,6 +21,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class WorkShiftService {
+    @org.springframework.beans.factory.annotation.Autowired
+    private vn.hoidanit.jobhunter.service.AccessService access;
+
 
     private final WorkShiftRepository workShiftRepository;
     private final UserRepository userRepository;
@@ -43,6 +46,7 @@ public class WorkShiftService {
         this.simpMessagingTemplate = simpMessagingTemplate;
     }
 
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public ResWorkShiftDTO create(ReqCreateWorkShiftDTO req) throws IdInvalidException {
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
@@ -52,6 +56,7 @@ public class WorkShiftService {
             }
         }
 
+        if (req.getCompanyId() == null) throw new IdInvalidException("Company is required");
         Optional<User> userOpt = this.userRepository.findById(req.getUserId());
         if (userOpt.isEmpty()) {
             throw new IdInvalidException("Nhân viên với id = " + req.getUserId() + " không tồn tại");
@@ -77,6 +82,7 @@ public class WorkShiftService {
             jobOpt.ifPresent(shift::setJob);
         }
 
+        validateShift(shift);
         WorkShift saved = this.workShiftRepository.save(shift);
 
         // Real-time broadcast
@@ -95,6 +101,7 @@ public class WorkShiftService {
         return convertToDTO(saved);
     }
 
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public ResWorkShiftDTO update(Long id, WorkShift req) throws IdInvalidException {
         Optional<WorkShift> shiftOpt = this.workShiftRepository.findById(id);
         if (shiftOpt.isEmpty()) {
@@ -102,6 +109,7 @@ public class WorkShiftService {
         }
 
         WorkShift current = shiftOpt.get();
+        access.requireCompany(current.getCompany());
 
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
@@ -125,6 +133,7 @@ public class WorkShiftService {
             uOpt.ifPresent(current::setUser);
         }
 
+        validateShift(current);
         WorkShift saved = this.workShiftRepository.save(current);
 
         this.simpMessagingTemplate.convertAndSend("/topic/shifts", "REFRESH");
@@ -135,6 +144,7 @@ public class WorkShiftService {
         return convertToDTO(saved);
     }
 
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public ResWorkShiftDTO transfer(ReqTransferWorkShiftDTO req) throws IdInvalidException {
         Optional<WorkShift> shiftOpt = this.workShiftRepository.findById(req.getShiftId());
         if (shiftOpt.isEmpty()) {
@@ -147,6 +157,7 @@ public class WorkShiftService {
         }
 
         WorkShift shift = shiftOpt.get();
+        access.requireCompany(shift.getCompany());
         User oldUser = shift.getUser();
         User newUser = newUserOpt.get();
 
@@ -183,6 +194,7 @@ public class WorkShiftService {
         }
         shift.setStatus(WorkShiftStatusEnum.TRANSFERRED);
 
+        validateShift(shift);
         WorkShift saved = this.workShiftRepository.save(shift);
 
         // Broadcast websocket
@@ -212,6 +224,7 @@ public class WorkShiftService {
             throw new IdInvalidException("Ca làm việc với id = " + id + " không tồn tại");
         }
         WorkShift shift = shiftOpt.get();
+        access.requireCompany(shift.getCompany());
 
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
@@ -239,6 +252,7 @@ public class WorkShiftService {
             throw new IdInvalidException("Ca làm việc với id = " + id + " không tồn tại");
         }
         WorkShift shift = shiftOpt.get();
+        access.requireCompany(shift.getCompany());
 
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
@@ -254,6 +268,7 @@ public class WorkShiftService {
     }
 
     public ResultPaginationDTO fetchAll(Specification<WorkShift> spec, Pageable pageable) {
+        access.requireCompany(access.currentUser().getCompany());
         Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
             User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
@@ -300,23 +315,65 @@ public class WorkShiftService {
         return rs;
     }
 
-    public List<User> fetchEmployeesByCompany(Long companyId) {
-        Optional<String> currentUserLogin = SecurityUtil.getCurrentUserLogin();
-        if (currentUserLogin.isPresent()) {
-            User currentUser = this.userRepository.findByEmail(currentUserLogin.get());
-            if (currentUser != null && currentUser.getCompany() != null) {
-                companyId = currentUser.getCompany().getId();
+    public record Employee(Long id, String name, String email) { }
+
+    public List<Employee> fetchEmployeesByCompany(Long companyId) {
+        User caller = access.currentUser();
+        if (!access.isAdmin(caller)) {
+            access.requireCompany(caller.getCompany());
+            companyId = caller.getCompany().getId();
+        }
+        List<User> employees;
+        if (companyId == null) {
+            employees = userRepository.findAll().stream().filter(u -> u.getCompany() != null).toList();
+        } else {
+            Company company = companyRepository.findById(companyId).orElse(null);
+            if (company == null) return List.of();
+            employees = userRepository.findByCompany(company);
+        }
+        return employees.stream().map(u -> new Employee(u.getId(), u.getName(), u.getEmail())).toList();
+    }
+
+    void validateShift(WorkShift shift) throws IdInvalidException {
+        access.requireCompany(shift.getCompany());
+        if (shift.getUser() == null || shift.getCompany() == null || shift.getShiftDate() == null) {
+            throw new IdInvalidException("Employee, company and date are required");
+        }
+        // Lock the employee so concurrent assignments cannot both pass the overlap check.
+        User employee = userRepository.lockById(shift.getUser().getId()).orElseThrow(
+                () -> new IdInvalidException("Employee not found"));
+        if (employee.getCompany() == null || !employee.getCompany().getId().equals(shift.getCompany().getId())) {
+            throw new IdInvalidException("Employee must belong to the shift company");
+        }
+        if (shift.getJob() != null && (shift.getJob().getCompany() == null
+                || !shift.getCompany().getId().equals(shift.getJob().getCompany().getId()))) {
+            throw new IdInvalidException("Job must belong to the shift company");
+        }
+        java.time.LocalDateTime[] proposed = shiftInterval(shift);
+        if (shift.getStatus() == WorkShiftStatusEnum.CANCELLED) return;
+        List<WorkShift> nearby = workShiftRepository.findByUserAndShiftDateBetweenOrderByShiftDateAscStartTimeAsc(
+                employee, shift.getShiftDate().minusDays(1), shift.getShiftDate().plusDays(1));
+        for (WorkShift other : nearby) {
+            if (java.util.Objects.equals(other.getId(), shift.getId()) || other.getStatus() == WorkShiftStatusEnum.CANCELLED) continue;
+            java.time.LocalDateTime[] existing = shiftInterval(other);
+            if (proposed[0].isBefore(existing[1]) && existing[0].isBefore(proposed[1])) {
+                throw new IdInvalidException("Employee already has an overlapping shift");
             }
         }
+    }
 
-        if (companyId == null) {
-            return this.userRepository.findAll();
+    private java.time.LocalDateTime[] shiftInterval(WorkShift shift) throws IdInvalidException {
+        try {
+            java.time.LocalTime start = java.time.LocalTime.parse(shift.getStartTime());
+            java.time.LocalTime end = java.time.LocalTime.parse(shift.getEndTime());
+            if (start.equals(end)) throw new IllegalArgumentException();
+            java.time.LocalDateTime from = shift.getShiftDate().atTime(start);
+            java.time.LocalDateTime to = shift.getShiftDate().atTime(end);
+            if (end.isBefore(start)) to = to.plusDays(1);
+            return new java.time.LocalDateTime[] { from, to };
+        } catch (RuntimeException ex) {
+            throw new IdInvalidException("Shift times must be valid HH:mm values with different start and end");
         }
-        Optional<Company> cp = this.companyRepository.findById(companyId);
-        if (cp.isEmpty()) {
-            return List.of();
-        }
-        return this.userRepository.findByCompany(cp.get());
     }
 
     private void createNotification(User user, String title, String body) {

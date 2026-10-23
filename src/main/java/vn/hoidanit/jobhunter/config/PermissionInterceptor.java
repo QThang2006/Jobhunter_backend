@@ -2,59 +2,37 @@ package vn.hoidanit.jobhunter.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
-import vn.hoidanit.jobhunter.controller.PermissionController;
-import vn.hoidanit.jobhunter.domain.Permission;
-import vn.hoidanit.jobhunter.domain.Role;
-import vn.hoidanit.jobhunter.domain.User;
-import vn.hoidanit.jobhunter.service.UserService;
-import vn.hoidanit.jobhunter.util.SecurityUtil;
-import vn.hoidanit.jobhunter.util.error.IdInvalidException;
-import vn.hoidanit.jobhunter.util.error.PermissionException;
+import vn.hoidanit.jobhunter.service.AccessService;
+import java.util.Set;
 
-import java.util.List;
-
-
+@Component
 public class PermissionInterceptor implements HandlerInterceptor {
-    @Autowired
-    private UserService userService;
+    private final AccessService access;
+    public PermissionInterceptor(AccessService access) { this.access = access; }
 
     @Override
-    @Transactional
-    public boolean preHandle(
-            HttpServletRequest request,
-            HttpServletResponse response, Object handler)
-            throws Exception {
-
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String path = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-        String requestURI = request.getRequestURI();
-        String httpMethod = request.getMethod();
-        System.out.println(">>> RUN preHandle");
-        System.out.println(">>> path= " + path);
-        System.out.println(">>> httpMethod= " + httpMethod);
-        System.out.println(">>> requestURI= " + requestURI);
-
-        String email = SecurityUtil.getCurrentUserLogin().isPresent() == true
-                ? SecurityUtil.getCurrentUserLogin().get()
-                : "" ;
-        if(email != null && !email.isEmpty()){
-            User user = userService.handleGetUserByUsername(email);
-            if(user != null){
-                Role role = user.getRole();
-                if(role != null){
-                    List<Permission> permissions = role.getPermissions();
-                    boolean isAllow = permissions.stream().anyMatch(item ->
-                            item.getApiPath().equals(path) && item.getMethod().equals(httpMethod));
-                    if(!isAllow){
-                        throw new PermissionException("bạn ko có quyền truy cập endpoin này1111111");
-                    }
-                } else  throw new PermissionException("bạn ko có quyền truy cập endpoin này1111");
-            }
+        String method = request.getMethod();
+        if (path == null || "OPTIONS".equals(method)) return true;
+        if ("GET".equals(method) && Set.of("/api/v1/companies", "/api/v1/companies/{id}",
+                "/api/v1/jobs", "/api/v1/jobs/{id}", "/api/v1/skills").contains(path)) return true;
+        if ("POST".equals(method) && "/api/v1/resumes".equals(path)) {
+            access.currentUser();
+            return true;
         }
-
+        // These aliases use the permission of the underlying operation.
+        if ("/api/v1/jobs/by-company".equals(path)) path = "/api/v1/jobs";
+        if ("/api/v1/companies/by-user".equals(path)) path = "/api/v1/companies";
+        if ("/api/v1/jobs/{id}/active".equals(path)) { path = "/api/v1/jobs"; method = "PUT"; }
+        if ("/api/v1/shifts/employees".equals(path)) path = "/api/v1/shifts";
+        if (Set.of("/api/v1/email/approve", "/api/v1/email/schedule-interview").contains(path)) {
+            path = "/api/v1/resumes"; method = "PUT";
+        }
+        access.requirePermission(path, method);
         return true;
     }
 }

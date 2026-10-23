@@ -86,9 +86,9 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(
                         authz -> authz
                                 .requestMatchers(whiteList).permitAll()
-                                .requestMatchers(HttpMethod.GET,"api/v1/companies/**").permitAll()
-                                .requestMatchers(HttpMethod.GET,"api/v1/jobs/**").permitAll()
-                                .requestMatchers(HttpMethod.GET,"api/v1/skills/**").permitAll()
+                                .requestMatchers(HttpMethod.GET,"/api/v1/companies/**").permitAll()
+                                .requestMatchers(HttpMethod.GET,"/api/v1/jobs/**").permitAll()
+                                .requestMatchers(HttpMethod.GET,"/api/v1/skills/**").permitAll()
                                 .requestMatchers("/ws/**").permitAll()
                                 .anyRequest().authenticated()
                 )
@@ -141,7 +141,11 @@ public class SecurityConfiguration {
                 getSecretKey()).macAlgorithm(SecurityUtil.JWT_ALGORITHM).build();
         return token -> {
             try {
-                return jwtDecoder.decode(token);
+                org.springframework.security.oauth2.jwt.Jwt jwt = jwtDecoder.decode(token);
+                if (!jwt.hasClaim("permission") || (jwt.hasClaim("token_use") && !"access".equals(jwt.getClaimAsString("token_use")))) {
+                    throw new org.springframework.security.oauth2.jwt.JwtException("An access token is required");
+                }
+                return jwt;
             } catch (Exception e) {
                 System.out.println(">>> JWT error: " + e.getMessage());
                 throw e;

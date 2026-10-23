@@ -10,10 +10,24 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    private final WebSocketAuthInterceptor authentication;
+
+    public WebSocketConfig(@org.springframework.context.annotation.Lazy WebSocketAuthInterceptor authentication) {
+        this.authentication = authentication;
+    }
+
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:https://jobhunter-fe-one.vercel.app,http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}")
+    private String allowedOrigins;
+
+    @Override
+    public void configureClientInboundChannel(org.springframework.messaging.simp.config.ChannelRegistration registration) {
+        registration.interceptors(authentication);
+    }
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")
+                .setAllowedOrigins(allowedOrigins.split(","))
                 .withSockJS();
     }
 

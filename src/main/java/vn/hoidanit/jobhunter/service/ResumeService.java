@@ -7,6 +7,7 @@ import com.turkraft.springfilter.parser.node.FilterNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -92,7 +93,23 @@ public class ResumeService {
 
     }
 
-    public ResCreateResumeDTO create(Resume resume) {
+    @Transactional
+    public ResCreateResumeDTO create(Resume resume) throws IdInvalidException {
+        User applicant = userRepository.findByEmail(SecurityUtil.getCurrentUserLogin().orElse(""));
+        if (applicant == null) throw new IdInvalidException("Applicant not found");
+        if (resume.getJob() == null || resume.getJob().getId() == null) throw new IdInvalidException("Job is required");
+        Job job = jobRepository.lockById(resume.getJob().getId()).orElseThrow(() -> new IdInvalidException("Job not found"));
+        validateApplication(job, applicant.getEmail());
+        resume.setId(null);
+        resume.setUser(applicant);
+        resume.setEmail(applicant.getEmail());
+        resume.setJob(job);
+        resume.setStatus(ResumeStateEnum.PENDING);
+        resume.setInterviewDate(null);
+        resume.setInterviewTime(null);
+        resume.setInterviewType(null);
+        resume.setMeetLink(null);
+        resume.setNote(null);
         if (resume.getUser() != null && resume.getPhone() != null && !resume.getPhone().trim().isEmpty()) {
             Optional<User> uOpt = this.userRepository.findById(resume.getUser().getId());
             if (uOpt.isPresent()) {
@@ -144,9 +161,10 @@ public class ResumeService {
 
     }
 
+    @Transactional
     public ResCreateResumeDTO quickApply(ReqQuickApplyDTO req) throws IdInvalidException {
         // 1. Kiểm tra Job
-        Optional<Job> jobOpt = this.jobRepository.findById(req.getJobId());
+        Optional<Job> jobOpt = this.jobRepository.lockById(req.getJobId());
         if (jobOpt.isEmpty()) {
             throw new IdInvalidException("Vị trí tuyển dụng với ID = " + req.getJobId() + " không tồn tại");
         }
@@ -156,7 +174,8 @@ public class ResumeService {
         }
 
         // 2. Tìm hoặc tự động tạo User ngầm
-        String email = req.getEmail().trim().toLowerCase();
+        String email = req.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        validateApplication(job, email);
         User user = this.userRepository.findByEmail(email);
         boolean isNewAccount = false;
         String temporaryPassword = null;
@@ -169,7 +188,7 @@ public class ResumeService {
             if (req.getPhone() != null && !req.getPhone().trim().isEmpty()) {
                 user.setPhone(req.getPhone().trim());
             }
-            temporaryPassword = "BakeJob@" + (1000 + (int)(Math.random() * 9000));
+            temporaryPassword = java.util.UUID.randomUUID().toString();
             user.setPassword(this.passwordEncoder.encode(temporaryPassword));
 
             Role userRole = this.roleRepository.findByName("USER");
@@ -230,6 +249,17 @@ public class ResumeService {
         res.setCreatedAt(savedResume.getCreatedAt());
         res.setCreatedBy(savedResume.getCreatedBy());
         return res;
+    }
+
+    void validateApplication(Job job, String email) throws IdInvalidException {
+        java.time.Instant now = java.time.Instant.now();
+        if (!job.isActive() || (job.getStartDate() != null && now.isBefore(job.getStartDate()))
+                || (job.getEndDate() != null && now.isAfter(job.getEndDate()))) {
+            throw new IdInvalidException("Job is not accepting applications");
+        }
+        boolean duplicate = resumeRepository.findByEmailAndJob(email, job).stream().anyMatch(r ->
+                r.getCreatedAt() == null || job.getStartDate() == null || !r.getCreatedAt().isBefore(job.getStartDate()));
+        if (duplicate) throw new IdInvalidException("You have already applied in this recruitment period");
     }
 
     public Optional<Resume> fetchById(long id) {
@@ -392,8 +422,7 @@ public class ResumeService {
         String email = SecurityUtil.getCurrentUserLogin().isPresent() == true
                 ? SecurityUtil.getCurrentUserLogin().get()
                 : "";
-        FilterNode node = filterParser.parse("email='" +email+ "'");
-        FilterSpecification<Resume> spec = filterSpecificationConverter.convert(node);
+        Specification<Resume> spec = (root, query, cb) -> cb.equal(root.get("user").get("email"), email);
         Page<Resume> pageResume = resumeRepository.findAll(spec,pageable);
 
         ResultPaginationDTO rs = new ResultPaginationDTO();

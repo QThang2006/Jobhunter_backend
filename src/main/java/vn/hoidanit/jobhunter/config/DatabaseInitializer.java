@@ -18,6 +18,8 @@ import java.util.List;
 @Service
 public class DatabaseInitializer implements CommandLineRunner {
 
+    @org.springframework.beans.factory.annotation.Value("${app.bootstrap.admin-password:}")
+    private String bootstrapPassword;
     private final PermissionRepository permissionRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -138,14 +140,32 @@ public class DatabaseInitializer implements CommandLineRunner {
             this.roleRepository.save(adminRole);
         }
 
-        if (countUsers == 0) {
+        Role defaultRole = roleRepository.findByName("USER");
+        if (defaultRole == null) {
+            defaultRole = new Role();
+            defaultRole.setName("USER");
+            defaultRole.setDescription("Candidate and employee self-service");
+            defaultRole.setActive(true);
+            defaultRole.setPermissions(new ArrayList<>());
+            defaultRole = roleRepository.save(defaultRole);
+        }
+        List<User> unassigned = userRepository.findByRoleIsNull();
+        for (User user : unassigned) user.setRole(defaultRole);
+        userRepository.saveAll(unassigned);
+        Role superAdmin = roleRepository.findByName("SUPER_ADMIN");
+        if (superAdmin != null) {
+            superAdmin.setPermissions(permissionRepository.findAll());
+            roleRepository.save(superAdmin);
+        }
+
+        if (countUsers == 0 && !bootstrapPassword.isBlank()) {
             User adminUser = new User();
             adminUser.setEmail("admin@gmail.com");
             adminUser.setAddress("hn");
             adminUser.setAge(25);
             adminUser.setGender(GenderEnum.MALE);
             adminUser.setName("I'm super admin");
-            adminUser.setPassword(this.passwordEncoder.encode("123456"));
+            adminUser.setPassword(this.passwordEncoder.encode(bootstrapPassword));
 
             Role adminRole = this.roleRepository.findByName("SUPER_ADMIN");
             if (adminRole != null) {

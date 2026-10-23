@@ -16,11 +16,16 @@ import java.util.List;
 
 @Repository
 public interface UserRepository extends JpaRepository<User,Long>, JpaSpecificationExecutor<User> {
+     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+     @Query("select u from User u where u.id = :id")
+     java.util.Optional<User> lockById(@Param("id") Long id);
+
      User findByEmail(String email);
      boolean existsByEmail(String email);
      User findByRefreshTokenAndEmail(String refreshToken,String email);
      List<User> findByCompany(Company com);
      List<User> findByRole(Role role);
+     List<User> findByRoleIsNull();
 
      @Modifying
      @Transactional

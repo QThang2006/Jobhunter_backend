@@ -60,6 +60,7 @@ public class UserService {
             Role role = roleService.fetchById(user.getRole().getId());
             user.setRole(role != null ? role : null);
         }
+        if (user.getRole() == null) user.setRole(roleService.defaultUserRole());
         this.simpMessagingTemplate.convertAndSend("/topic/users", "REFRESH");
         return userRepository.save(user);
     }
@@ -68,7 +69,7 @@ public class UserService {
     public void handleDeleteUser(Long id){
         User user = fetchUserById(id);
         Subscriber subscriber = subscriberRepository.findByEmail(user.getEmail());
-        subscriberRepository.delete(subscriber);
+        if (subscriber != null) subscriberRepository.delete(subscriber);
         userRepository.deleteById(id);
         this.simpMessagingTemplate.convertAndSend("/topic/users", "REFRESH");
     }
@@ -103,9 +104,35 @@ public class UserService {
         return userRepository.existsByEmail(email);
     }
 
+    public void populateCompany(vn.hoidanit.jobhunter.domain.response.ResLoginDTO.UserLogin dto, User user) {
+        if (user.getCompany() != null) {
+            Company c = user.getCompany();
+            dto.setCompany(new vn.hoidanit.jobhunter.domain.response.ResLoginDTO.CompanyLogin(c.getId(), c.getName(), c.getLogo()));
+        }
+    }
+
+    public User updateProfile(User request, User current) {
+        current.setName(request.getName());
+        current.setAge(request.getAge());
+        current.setGender(request.getGender());
+        current.setAddress(request.getAddress());
+        if (request.getPhone() != null) current.setPhone(request.getPhone());
+        return userRepository.save(current);
+    }
+
+    public void changePassword(User user, String encodedPassword) {
+        user.setPassword(encodedPassword);
+        user.setRefreshToken(null);
+        userRepository.save(user);
+    }
+
     public User handleUpdate(User user){
         User userUpdate = fetchUserById(user.getId());
         if(userUpdate != null){
+            userUpdate.setAge(user.getAge());
+            userUpdate.setGender(user.getGender());
+            userUpdate.setAddress(user.getAddress());
+            userUpdate.setPhone(user.getPhone());
             userUpdate.setName(user.getName());
             userUpdate.setEmail(user.getEmail());
 
@@ -216,7 +243,7 @@ public class UserService {
     public void sendOTP(String email) {
         User user = userRepository.findByEmail(email);
         if (user != null) {
-            String otp = String.valueOf((int)((Math.random() * 900000) + 100000)); // 6 digits
+            String otp = String.valueOf(new java.security.SecureRandom().nextInt(900000) + 100000); // 6 digits
             user.setOtp(otp);
             user.setOtpExpiredAt(Instant.now().plusSeconds(60));
             userRepository.save(user);
@@ -226,19 +253,25 @@ public class UserService {
 
     public boolean verifyOTP(String email, String otp) {
         User user = userRepository.findByEmail(email);
-        if (user != null && user.getOtp() != null) {
+        if (user != null && user.getOtp() != null && user.getOtpExpiredAt() != null
+                && user.getOtpExpiredAt().isAfter(Instant.now())) {
             return user.getOtp().equals(otp);
         }
         return false;
     }
 
     public void resetPassword(String email, String otp, String newPass) {
+        if (newPass == null || newPass.length() < 6 || !verifyOTP(email, otp)) {
+            throw new IllegalArgumentException("OTP invalid/expired or password too short");
+        }
         if (verifyOTP(email, otp)) {
             User user = userRepository.findByEmail(email);
             // Trong dự án thật, bạn nên dùng PasswordEncoder.encode(newPass)
             newPass = passwordEncoder.encode(newPass);
             user.setPassword(newPass);
-            user.setOtp(null); // Xóa OTP sau khi dùng
+            user.setOtp(null);
+            user.setOtpExpiredAt(null);
+            user.setRefreshToken(null);
             userRepository.save(user);
         }
     }
